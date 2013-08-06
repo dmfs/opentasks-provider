@@ -557,6 +557,7 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 			getContext().getContentResolver().notifyChange(uri, null);
 			getContext().getContentResolver().notifyChange(Instances.CONTENT_URI, null);
 			getContext().getContentResolver().notifyChange(Tasks.CONTENT_URI, null);
+			Utils.sendActionProviderChangedBroadCast(getContext());
 		}
 		return count;
 	}
@@ -633,6 +634,9 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 			result_uri = ContentUris.withAppendedId(result_uri, rowId);
 			getContext().getContentResolver().notifyChange(result_uri, null);
 			getContext().getContentResolver().notifyChange(uri, null);
+
+			Utils.sendActionProviderChangedBroadCast(getContext());
+
 			return result_uri;
 		}
 		throw new SQLException("Failed to insert row into " + uri);
@@ -800,6 +804,9 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 
 		// TODO:: do not notifyChange if only sync adapter columns have been changed
 		getContext().getContentResolver().notifyChange(uri, null);
+
+		Utils.sendActionProviderChangedBroadCast(getContext());
+
 		return count;
 	}
 
@@ -1335,5 +1342,7 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 		getContext().getContentResolver().notifyChange(TaskLists.CONTENT_URI, null);
 		getContext().getContentResolver().notifyChange(Tasks.CONTENT_URI, null);
 		getContext().getContentResolver().notifyChange(Instances.CONTENT_URI, null);
+
+		Utils.sendActionProviderChangedBroadCast(getContext());
 	}
 }
