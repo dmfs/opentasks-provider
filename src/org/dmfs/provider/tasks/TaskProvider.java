@@ -659,8 +659,11 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 		Long due = values.getAsLong(Tasks.DUE);
 		String durationStr = values.getAsString(Tasks.DURATION);
 
-		// copy dtstart as is
-		instanceValues.put(Instances.INSTANCE_START, dtstart);
+		if (values.containsKey(TaskColumns.DTSTART))
+		{
+			// copy dtstart as is
+			instanceValues.put(Instances.INSTANCE_START, dtstart);
+		}
 
 		if (due != null)
 		{
