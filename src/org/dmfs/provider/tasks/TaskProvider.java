@@ -665,11 +665,11 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 			instanceValues.put(Instances.INSTANCE_START, dtstart);
 		}
 
-		if (due != null)
+		if (values.containsKey(TaskColumns.DUE))
 		{
 			// copy due and calculate the actual duration, if any
 			instanceValues.put(Instances.INSTANCE_DUE, due);
-			if (dtstart != null)
+			if (dtstart != null && due != null)
 			{
 				Long instanceDuration = due - dtstart;
 				instanceValues.put(Instances.INSTANCE_DURATION, instanceDuration);
@@ -679,22 +679,31 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 				instanceValues.putNull(Instances.INSTANCE_DURATION);
 			}
 		}
-		else if (durationStr != null)
+
+		if (values.containsKey(TaskColumns.DURATION) && due == null) // actually due and duration should not be set at the same time
 		{
-			// calculate the actual due value from dtstart and the duration string
-			Duration duration = new Duration(durationStr);
-			Time tStart = new Time(values.getAsString(Tasks.TZ));
-			Boolean isAllDay = values.getAsBoolean(Tasks.IS_ALLDAY);
-			if (isAllDay != null)
+			if (durationStr != null && dtstart != null)
 			{
-				tStart.allDay = isAllDay;
+				// calculate the actual due value from dtstart and the duration string
+				Duration duration = new Duration(durationStr);
+				Time tStart = new Time(values.getAsString(Tasks.TZ));
+				Boolean isAllDay = values.getAsBoolean(Tasks.IS_ALLDAY);
+				if (isAllDay != null)
+				{
+					tStart.allDay = isAllDay;
+				}
+				tStart.set(dtstart);
+				Long instanceDue = duration.addTo(tStart).toMillis(false);
+				instanceValues.put(Instances.INSTANCE_DUE, instanceDue);
+				// actual duration is the difference between due and dtstart
+				Long instanceDuration = instanceDue - dtstart;
+				instanceValues.put(Instances.INSTANCE_DURATION, instanceDuration);
 			}
-			tStart.set(dtstart);
-			Long instanceDue = duration.addTo(tStart).toMillis(false);
-			instanceValues.put(Instances.INSTANCE_DUE, instanceDue);
-			// actual duration is the difference between due and dtstart
-			Long instanceDuration = instanceDue - dtstart;
-			instanceValues.put(Instances.INSTANCE_DURATION, instanceDuration);
+			else
+			{
+				instanceValues.putNull(Instances.INSTANCE_DURATION);
+				instanceValues.putNull(Instances.INSTANCE_DUE);
+			}
 		}
 		return instanceValues;
 	}
@@ -899,12 +908,22 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 			instanceValues.put(Instances.INSTANCE_START_SORTING, instanceStart
 				+ (tz == null || (allday != null && allday > 0) ? 0 : TimeZone.getTimeZone(tz).getOffset(instanceStart)));
 		}
+		else if (values.containsKey(Tasks.DTSTART))
+		{
+			// dtstart must have been set to null, so remove sorting value
+			instanceValues.putNull(Instances.INSTANCE_START_SORTING);
+		}
 
 		Long instanceDue = instanceValues.getAsLong(Instances.INSTANCE_DUE);
 		if (instanceDue != null)
 		{
 			instanceValues.put(Instances.INSTANCE_DUE_SORTING, instanceDue
 				+ (tz == null || (allday != null && allday > 0) ? 0 : TimeZone.getTimeZone(tz).getOffset(instanceDue)));
+		}
+		else if (values.containsKey(Tasks.DUE))
+		{
+			// due must have been set to null, so remove sorting value
+			instanceValues.putNull(Instances.INSTANCE_DUE_SORTING);
 		}
 
 		mTaskDb.update(Tables.INSTANCES, instanceValues, selection, selectionArgs);
