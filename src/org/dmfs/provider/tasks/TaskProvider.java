@@ -20,7 +20,10 @@ package org.dmfs.provider.tasks;
 import java.sql.RowId;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.TimeZone;
 
 import org.dmfs.provider.tasks.TaskContract.CategoriesColumns;
@@ -90,6 +93,8 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 	private static final String SYNC_ID_SELECTION = Tasks._SYNC_ID + "=?";
 	private static final String TASK_ID_SELECTION = Tasks._ID + "=?";
 	private static final String TASKLISTS_ID_SELECTION = TaskLists._ID + "=?";
+
+	private final static Set<String> TASK_LIST_SYNC_COLUMNS = new HashSet<String>(Arrays.asList(TaskLists.SYNC_ADAPTER_COLUMNS));
 
 	/**
 	 * A helper to check {@link Integer} values for equality with <code>1</code>. You can use it like
@@ -802,10 +807,28 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 				throw new IllegalArgumentException("Unknown URI " + uri);
 		}
 
-		// TODO:: do not notifyChange if only sync adapter columns have been changed
-		getContext().getContentResolver().notifyChange(uri, null);
+		// get the keys in values
+		Set<String> keys;
+		if (android.os.Build.VERSION.SDK_INT < 11)
+		{
+			keys = new HashSet<String>();
+			for (Entry<String, Object> entry : values.valueSet())
+			{
+				keys.add(entry.getKey());
+			}
+		}
+		else
+		{
+			keys = values.keySet();
+		}
 
-		Utils.sendActionProviderChangedBroadCast(getContext());
+		if (!TASK_LIST_SYNC_COLUMNS.containsAll(keys))
+		{
+			// send notifications, because non-sync columns have been updated
+			getContext().getContentResolver().notifyChange(uri, null);
+
+			Utils.sendActionProviderChangedBroadCast(getContext());
+		}
 
 		return count;
 	}
