@@ -113,10 +113,18 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	private final static Integer ONE = 1;
 
 	/**
-	 * The actual task database.
+	 * The task database helper that provides access to the actual database.
 	 */
-	private SQLiteDatabase mTaskDb;
 	private TaskDatabaseHelper mDBHelper;
+
+
+	@Override
+	public boolean onCreate()
+	{
+		// register for account updates and check immediately
+		AccountManager.get(getContext()).addOnAccountsUpdatedListener(this, null, true);
+		return super.onCreate();
+	}
 
 
 	/**
@@ -362,25 +370,10 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 
 
 	@Override
-	public boolean onCreate()
-	{
-		Context context = getContext();
-		mDBHelper = new TaskDatabaseHelper(context);
-		mTaskDb = mDBHelper.getWritableDatabase();
-
-		// register for account updates and check immediately
-		AccountManager.get(context).addOnAccountsUpdatedListener(this, null, true);
-
-		super.onCreate();
-
-		return mTaskDb != null;
-	}
-
-
-	@Override
 	public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder)
 	{
 
+		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
 		SQLiteQueryBuilder sqlBuilder = new SQLiteQueryBuilder();
 		// initialize appendWhere, this allows us to append all other selections with a preceding "AND"
 		sqlBuilder.appendWhere(" 1=1 ");
@@ -478,7 +471,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				throw new IllegalArgumentException("Unknown URI " + uri);
 		}
 
-		Cursor c = sqlBuilder.query(mTaskDb, projection, selection, selectionArgs, null, null, sortOrder);
+		Cursor c = sqlBuilder.query(db, projection, selection, selectionArgs, null, null, sortOrder);
 
 		if (c != null)
 		{
@@ -491,7 +484,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	@Override
 	public int deleteInTransaction(Uri uri, String selection, String[] selectionArgs, boolean isSyncAdapter)
 	{
-
+		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
 		int count = 0;
 		String accountName = getAccountName(uri);
 		String accountType = getAccountType(uri);
@@ -515,7 +508,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 
 					selection = updateSelection(selectAccount(uri), selection);
 
-					count = mTaskDb.delete(Tables.LISTS, selection, selectionArgs);
+					count = db.delete(Tables.LISTS, selection, selectionArgs);
 				}
 				else
 				{
@@ -540,7 +533,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 					}
 
 					// only sync adapters can delete tasks
-					count = mTaskDb.delete(Tables.TASKS, selection, selectionArgs);
+					count = db.delete(Tables.TASKS, selection, selectionArgs);
 				}
 				else
 				{
@@ -548,7 +541,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 					ContentValues values = new ContentValues();
 					values.put(TaskSyncColumns._DELETED, true);
 					values.put(CommonSyncColumns._DIRTY, true);
-					count = mTaskDb.update(Tables.TASKS, values, selection, selectionArgs);
+					count = db.update(Tables.TASKS, values, selection, selectionArgs);
 				}
 				break;
 			case CATEGORIES:
@@ -574,6 +567,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	@Override
 	public Uri insertInTransaction(Uri uri, ContentValues values, boolean isSyncAdapter)
 	{
+		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
 		long rowId = 0;
 		Uri result_uri = null;
 
@@ -595,7 +589,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 
 					values.put(TaskContract.ACCOUNT_NAME, accountName);
 					values.put(TaskContract.ACCOUNT_TYPE, accountType);
-					rowId = mTaskDb.insert(Tables.LISTS, "", values);
+					rowId = db.insert(Tables.LISTS, "", values);
 					result_uri = TaskContract.TaskLists.CONTENT_URI;
 				}
 				else
@@ -619,7 +613,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				}
 
 				// insert task
-				rowId = mTaskDb.insert(Tables.TASKS, "", values);
+				rowId = db.insert(Tables.TASKS, "", values);
 
 				// add entries to Instances
 				createInstances(uri, values, rowId);
@@ -629,7 +623,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 
 			case CATEGORIES:
 				// TODO
-				rowId = mTaskDb.insert(Tables.CATEGORIES, "", values);
+				rowId = db.insert(Tables.CATEGORIES, "", values);
 				result_uri = TaskContract.Categories.CONTENT_URI;
 				break;
 			default:
@@ -654,21 +648,21 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	@Override
 	public int updateInTransaction(Uri uri, ContentValues values, String selection, String[] selectionArgs, boolean isSyncAdapter)
 	{
+		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
 		int count = 0;
-
 		switch (uriMatcher.match(uri))
 		{
 			case LISTS:
 				validateTaskListValues(values, false, isSyncAdapter);
 
-				count = mTaskDb.update(Tables.LISTS, values, selection, selectionArgs);
+				count = db.update(Tables.LISTS, values, selection, selectionArgs);
 				break;
 			case LIST_ID:
 				String newListSelection = updateSelection(selectId(uri), selection);
 
 				validateTaskListValues(values, false, isSyncAdapter);
 
-				count = mTaskDb.update(Tables.LISTS, values, newListSelection, selectionArgs);
+				count = db.update(Tables.LISTS, values, newListSelection, selectionArgs);
 				break;
 			case TASKS:
 				// validate tasks
@@ -682,7 +676,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				}
 
 				// perform updates
-				count = mTaskDb.update(Tables.TASKS, values, selection, selectionArgs);
+				count = db.update(Tables.TASKS, values, selection, selectionArgs);
 
 				// update related instances
 				updateInstancesOfAllTasks(values, selection, selectionArgs);
@@ -699,7 +693,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 					values.put(CommonSyncColumns._DIRTY, true);
 					values.put(TaskColumns.LAST_MODIFIED, System.currentTimeMillis());
 				}
-				count = mTaskDb.update(Tables.TASKS, values, newSelection, selectionArgs);
+				count = db.update(Tables.TASKS, values, newSelection, selectionArgs);
 				String taskSelection = updateSelection(selectTaskId(uri), selection).toString();
 				updateInstancesOfOneTask(getId(uri), values, taskSelection, selectionArgs);
 				break;
@@ -819,7 +813,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	 */
 	private void createInstances(Uri uri, ContentValues values, long rowId)
 	{
-
+		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
 		ContentValues instanceValues = setInstanceTimes(values);
 
 		// set rowID of current Task
@@ -843,7 +837,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 			instanceValues.put(Instances.INSTANCE_DUE_SORTING, instanceDue + (tz == null || allday ? 0 : TimeZone.getTimeZone(tz).getOffset(instanceDue)));
 		}
 
-		mTaskDb.insert(Tables.INSTANCES, null, instanceValues);
+		db.insert(Tables.INSTANCES, null, instanceValues);
 		getContext().getContentResolver().notifyChange(Instances.CONTENT_URI, null);
 	}
 
@@ -876,8 +870,9 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	 */
 	private void updateInstancesOfAllTasks(ContentValues values, String selection, String[] selectionArgs)
 	{
+		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
 		Log.i("UPDATE_INSTANCE", "In updateInstanceOfAllTask");
-		Cursor cursor = mTaskDb.query(Tables.TASKS, TASK_ID_PROJECTION, selection, selectionArgs, null, null, null, null);
+		Cursor cursor = db.query(Tables.TASKS, TASK_ID_PROJECTION, selection, selectionArgs, null, null, null, null);
 		if (cursor != null)
 		{
 			try
@@ -899,6 +894,8 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 
 	private void updateInstancesOfOneTask(String task_id, ContentValues values, String selection, String[] selectionArgs)
 	{
+		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
+
 		// check if either one of the following has been updated: DTSTART, DUE, DURATION, RRULE, RDATE, EXDATE
 		// right now we only update DTSTART, DUE and DURATION
 
@@ -951,7 +948,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 			instanceValues.putNull(Instances.INSTANCE_DUE_SORTING);
 		}
 
-		mTaskDb.update(Tables.INSTANCES, instanceValues, selection, selectionArgs);
+		db.update(Tables.INSTANCES, instanceValues, selection, selectionArgs);
 		getContext().getContentResolver().notifyChange(Instances.CONTENT_URI, null);
 	}
 
@@ -1007,6 +1004,8 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	 */
 	private void validateTaskValues(ContentValues values, boolean isNew, boolean isSyncAdapter)
 	{
+		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
+
 		// row id can not be changed or set manually
 		if (values.containsKey(TaskColumns._ID))
 		{
@@ -1023,7 +1022,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				throw new IllegalArgumentException("LIST_ID is required on INSERT");
 			}
 
-			Cursor cursor = mTaskDb.query(Tables.LISTS, TASKLIST_ID_PROJECTION, TASKLISTS_ID_SELECTION, listId, null, null, null);
+			Cursor cursor = db.query(Tables.LISTS, TASKLIST_ID_PROJECTION, TASKLISTS_ID_SELECTION, listId, null, null, null);
 			try
 			{
 				if (cursor == null || cursor.getCount() != 1)
@@ -1058,7 +1057,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 		if (values.get(Tasks.ORIGINAL_INSTANCE_SYNC_ID) != null)
 		{
 			String[] syncId = { values.getAsString(Tasks.ORIGINAL_INSTANCE_SYNC_ID) };
-			Cursor cursor = mTaskDb.query(Tables.TASKS, TASK_ID_PROJECTION, SYNC_ID_SELECTION, syncId, null, null, null);
+			Cursor cursor = db.query(Tables.TASKS, TASK_ID_PROJECTION, SYNC_ID_SELECTION, syncId, null, null, null);
 			try
 			{
 				if (cursor != null && cursor.getCount() == 1)
@@ -1079,7 +1078,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 		else if (values.get(Tasks.ORIGINAL_INSTANCE_ID) != null) // Find corresponding ORIGINAL_INSTANCE_SYNC_ID
 		{
 			String[] id = { values.getAsString(Tasks.ORIGINAL_INSTANCE_ID) };
-			Cursor cursor = mTaskDb.query(Tables.TASKS, TASK_SYNC_ID_PROJECTION, TASK_ID_SELECTION, id, null, null, null);
+			Cursor cursor = db.query(Tables.TASKS, TASK_SYNC_ID_PROJECTION, TASK_ID_SELECTION, id, null, null, null);
 			try
 			{
 				if (cursor != null && cursor.getCount() == 1)
@@ -1334,12 +1333,13 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 		// make a list of the accounts array
 		List<Account> accountList = Arrays.asList(accounts);
 
-		mTaskDb.beginTransaction();
+		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
+		db.beginTransaction();
 
 		try
 		{
-			Cursor c = mTaskDb.query(Tables.LISTS, new String[] { TaskListColumns._ID, TaskListSyncColumns.ACCOUNT_NAME, TaskListSyncColumns.ACCOUNT_TYPE },
-				null, null, null, null, null);
+			Cursor c = db.query(Tables.LISTS, new String[] { TaskListColumns._ID, TaskListSyncColumns.ACCOUNT_NAME, TaskListSyncColumns.ACCOUNT_TYPE }, null,
+				null, null, null, null);
 
 			// build a list of all task list ids that no longer have an account
 			List<Long> obsoleteLists = new ArrayList<Long>();
@@ -1376,14 +1376,14 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 			{
 				if (id != null)
 				{
-					mTaskDb.delete(Tables.LISTS, TaskListColumns._ID + "=" + id, null);
+					db.delete(Tables.LISTS, TaskListColumns._ID + "=" + id, null);
 				}
 			}
-			mTaskDb.setTransactionSuccessful();
+			db.setTransactionSuccessful();
 		}
 		finally
 		{
-			mTaskDb.endTransaction();
+			db.endTransaction();
 		}
 		// notify all observers
 		getContext().getContentResolver().notifyChange(TaskLists.CONTENT_URI, null);
@@ -1397,6 +1397,13 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	@Override
 	public SQLiteOpenHelper getDatabaseHelper(Context context)
 	{
-		return mDBHelper;
+		synchronized (this)
+		{
+			if (mDBHelper == null)
+			{
+				mDBHelper = new TaskDatabaseHelper(context);
+			}
+			return mDBHelper;
+		}
 	}
 }
