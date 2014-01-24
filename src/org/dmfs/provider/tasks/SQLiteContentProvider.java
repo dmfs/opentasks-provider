@@ -159,6 +159,7 @@ public abstract class SQLiteContentProvider extends ContentProvider
 		{
 			for (int i = 0; i < numValues; i++)
 			{
+				Uri result = insertInTransaction(uri, values[i], callerIsSyncAdapter);
 				mDb.yieldIfContendedSafely();
 			}
 			mDb.setTransactionSuccessful();

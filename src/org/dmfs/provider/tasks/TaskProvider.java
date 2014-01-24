@@ -121,9 +121,12 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	@Override
 	public boolean onCreate()
 	{
+		boolean wasCreated = super.onCreate();
+
 		// register for account updates and check immediately
 		AccountManager.get(getContext()).addOnAccountsUpdatedListener(this, null, true);
-		return super.onCreate();
+
+		return wasCreated;
 	}
 
 
@@ -555,10 +558,9 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 
 		if (count > 0)
 		{
-			getContext().getContentResolver().notifyChange(uri, null);
-			getContext().getContentResolver().notifyChange(Instances.CONTENT_URI, null);
-			getContext().getContentResolver().notifyChange(Tasks.CONTENT_URI, null);
-			Utils.sendActionProviderChangedBroadCast(getContext());
+			postNotifyUri(uri);
+			postNotifyUri(Instances.CONTENT_URI);
+			postNotifyUri(Tasks.CONTENT_URI);
 		}
 		return count;
 	}
@@ -599,7 +601,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				break;
 
 			case TASKS:
-				validateTaskValues(values, true, isSyncAdapter);
+				validateTaskValues(db, values, true, isSyncAdapter);
 
 				if (!isSyncAdapter)
 				{
@@ -616,7 +618,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				rowId = db.insert(Tables.TASKS, "", values);
 
 				// add entries to Instances
-				createInstances(uri, values, rowId);
+				createInstances(db, uri, values, rowId);
 
 				result_uri = TaskContract.Tasks.CONTENT_URI;
 				break;
@@ -633,11 +635,8 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 		if (rowId > 0 && result_uri != null)
 		{
 			result_uri = ContentUris.withAppendedId(result_uri, rowId);
-			getContext().getContentResolver().notifyChange(result_uri, null);
-			getContext().getContentResolver().notifyChange(uri, null);
-
-			Utils.sendActionProviderChangedBroadCast(getContext());
-
+			postNotifyUri(result_uri);
+			postNotifyUri(uri);
 			return result_uri;
 		}
 		throw new SQLException("Failed to insert row into " + uri);
@@ -666,7 +665,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				break;
 			case TASKS:
 				// validate tasks
-				validateTaskValues(values, false, isSyncAdapter);
+				validateTaskValues(db, values, false, isSyncAdapter);
 
 				if (!isSyncAdapter)
 				{
@@ -679,13 +678,13 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				count = db.update(Tables.TASKS, values, selection, selectionArgs);
 
 				// update related instances
-				updateInstancesOfAllTasks(values, selection, selectionArgs);
+				updateInstancesOfAllTasks(db, values, selection, selectionArgs);
 
 				break;
 			case TASK_ID:
 				String newSelection = updateSelection(selectId(uri), selection);
 
-				validateTaskValues(values, false, isSyncAdapter);
+				validateTaskValues(db, values, false, isSyncAdapter);
 
 				if (!isSyncAdapter)
 				{
@@ -695,7 +694,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				}
 				count = db.update(Tables.TASKS, values, newSelection, selectionArgs);
 				String taskSelection = updateSelection(selectTaskId(uri), selection).toString();
-				updateInstancesOfOneTask(getId(uri), values, taskSelection, selectionArgs);
+				updateInstancesOfOneTask(db, getId(uri), values, taskSelection, selectionArgs);
 				break;
 			case CATEGORIES:
 				break;
@@ -723,9 +722,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 		if (!TASK_LIST_SYNC_COLUMNS.containsAll(keys))
 		{
 			// send notifications, because non-sync columns have been updated
-			getContext().getContentResolver().notifyChange(uri, null);
-
-			Utils.sendActionProviderChangedBroadCast(getContext());
+			postNotifyUri(uri);
 		}
 
 		return count;
@@ -811,9 +808,8 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	 * @param rowId
 	 *            The new {@link RowId} of the task.
 	 */
-	private void createInstances(Uri uri, ContentValues values, long rowId)
+	private void createInstances(SQLiteDatabase db, Uri uri, ContentValues values, long rowId)
 	{
-		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
 		ContentValues instanceValues = setInstanceTimes(values);
 
 		// set rowID of current Task
@@ -838,7 +834,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 		}
 
 		db.insert(Tables.INSTANCES, null, instanceValues);
-		getContext().getContentResolver().notifyChange(Instances.CONTENT_URI, null);
+		postNotifyUri(Instances.CONTENT_URI);
 	}
 
 
@@ -868,9 +864,8 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	 * @param selectionArgs
 	 *            The selection arguments.
 	 */
-	private void updateInstancesOfAllTasks(ContentValues values, String selection, String[] selectionArgs)
+	private void updateInstancesOfAllTasks(SQLiteDatabase db, ContentValues values, String selection, String[] selectionArgs)
 	{
-		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
 		Log.i("UPDATE_INSTANCE", "In updateInstanceOfAllTask");
 		Cursor cursor = db.query(Tables.TASKS, TASK_ID_PROJECTION, selection, selectionArgs, null, null, null, null);
 		if (cursor != null)
@@ -881,7 +876,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				{
 					String taskId = cursor.getString(0);
 					String taskSelection = updateSelection(selectTaskId(taskId), selection).toString();
-					updateInstancesOfOneTask(taskId, values, taskSelection, selectionArgs);
+					updateInstancesOfOneTask(db, taskId, values, taskSelection, selectionArgs);
 				}
 			}
 			finally
@@ -892,10 +887,8 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	}
 
 
-	private void updateInstancesOfOneTask(String task_id, ContentValues values, String selection, String[] selectionArgs)
+	private void updateInstancesOfOneTask(SQLiteDatabase db, String task_id, ContentValues values, String selection, String[] selectionArgs)
 	{
-		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
-
 		// check if either one of the following has been updated: DTSTART, DUE, DURATION, RRULE, RDATE, EXDATE
 		// right now we only update DTSTART, DUE and DURATION
 
@@ -949,7 +942,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 		}
 
 		db.update(Tables.INSTANCES, instanceValues, selection, selectionArgs);
-		getContext().getContentResolver().notifyChange(Instances.CONTENT_URI, null);
+		postNotifyUri(Instances.CONTENT_URI);
 	}
 
 
@@ -1002,10 +995,8 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	 * @throws IllegalArgumentException
 	 *             if any of the values is invalid.
 	 */
-	private void validateTaskValues(ContentValues values, boolean isNew, boolean isSyncAdapter)
+	private void validateTaskValues(SQLiteDatabase db, ContentValues values, boolean isNew, boolean isSyncAdapter)
 	{
-		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
-
 		// row id can not be changed or set manually
 		if (values.containsKey(TaskColumns._ID))
 		{
@@ -1392,6 +1383,14 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 
 		Utils.sendActionProviderChangedBroadCast(getContext());
 	}
+
+
+	@Override
+	protected void onEndTransaction(boolean callerIsSyncAdapter)
+	{
+		super.onEndTransaction(callerIsSyncAdapter);
+		Utils.sendActionProviderChangedBroadCast(getContext());
+	};
 
 
 	@Override
