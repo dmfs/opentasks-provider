@@ -17,6 +17,7 @@
 
 package org.dmfs.provider.tasks;
 
+import org.dmfs.provider.tasks.TaskContract.Properties;
 import org.dmfs.provider.tasks.TaskContract.TaskLists;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 
@@ -31,6 +32,7 @@ import android.util.Log;
  * Task database helper takes case of creating and updating the task database, including tables, indices and triggers.
  * 
  * @author Marten Gajda <marten@dmfs.org>
+ * @author Tobias Reinsch <tobias@dmfs.org>
  */
 public class TaskDatabaseHelper extends SQLiteOpenHelper
 {
@@ -45,12 +47,12 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	/**
 	 * The database version.
 	 */
-	static final int DATABASE_VERSION = 3;
+	static final int DATABASE_VERSION = 4;
 
 	/**
 	 * List of all tables we provide.
 	 */
-	interface Tables
+	public interface Tables
 	{
 		public static final String LISTS = "Lists";
 
@@ -66,8 +68,22 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 
 		public static final String CATEGORIES = "Categories";
 
+		public static final String CATEGORIES_MAPPING = "Categories_Mapping";
+
 		public static final String PROPERTIES = "Properties";
 
+		public static final String ALARMS = "Alarms";
+
+	}
+
+	/**
+	 * Columns of internal table for the category mapping
+	 */
+	public interface CategoriesMapping
+	{
+		public static final String TASK_ID = "task_id";
+
+		public static final String CATEGORY_ID = "category_id";
 	}
 
 
@@ -83,6 +99,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	 */
 	private final static String SQL_CREATE_TASK_VIEW = "create view " + Tables.TASKS_VIEW + " as select " +
 		Tables.TASKS + ".*, " +
+		Tables.PROPERTIES + ".*, "+ 
 		Tables.LISTS + "." + Tasks.ACCOUNT_NAME + ", " +
 		Tables.LISTS + "." + Tasks.ACCOUNT_TYPE + ", " +
 		Tables.LISTS + "." + Tasks.LIST_OWNER + ", " +
@@ -91,14 +108,23 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		Tables.LISTS + "." + Tasks.LIST_COLOR + ", " +
 		Tables.LISTS + "." + Tasks.VISIBLE +
 		" from " + Tables.TASKS + " join " + Tables.LISTS +
-		" on (" + Tables.TASKS + "." + Tasks.LIST_ID + "=" + Tables.LISTS + "." + TaskLists._ID + ")";
+		" on (" + Tables.TASKS + "." + Tasks.LIST_ID + "=" + Tables.LISTS + "." + TaskLists._ID + ") "+
+		"left join "+ Tables.PROPERTIES + " on (" + Tables.TASKS + "." + Tasks._ID + "=" + Tables.PROPERTIES + "." + Properties.TASK_ID +")";
 
+
+	/**
+	 * SQL command to drop the task view
+	 */
+	private final static String SQL_DROP_TASK_VIEW = "DROP VIEW " + Tables.TASKS_VIEW;
+
+	
 	
 	/**
 	 * SQL command to create a view that combines task instances with some data from the list they belong to.
 	 */
 	private final static String SQL_CREATE_INSTANCE_VIEW = "CREATE VIEW " + Tables.INSTANCE_VIEW + " AS SELECT "
 		+ Tables.INSTANCES + ".*, "
+		+ Tables.PROPERTIES + ".*, "
 		+ Tables.TASKS + ".*, "
 		+ Tables.LISTS + "." + Tasks.ACCOUNT_NAME + ", "
 		+ Tables.LISTS + "." + Tasks.ACCOUNT_TYPE + ", "
@@ -109,8 +135,14 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		+ Tables.LISTS + "." + Tasks.VISIBLE
 		+ " FROM " + Tables.TASKS
 		+ " JOIN " + Tables.LISTS + " ON (" + Tables.TASKS + "."+ TaskContract.Tasks.LIST_ID + "=" + Tables.LISTS + "."+TaskContract.Tasks._ID + ")"
-		+ " JOIN " + Tables.INSTANCES + " ON (" + Tables.TASKS + "." + TaskContract.Tasks._ID + "=" + Tables.INSTANCES + "."+TaskContract.Instances.TASK_ID+ ")";
-
+		+ " JOIN " + Tables.INSTANCES + " ON (" + Tables.TASKS + "." + TaskContract.Tasks._ID + "=" + Tables.INSTANCES + "."+TaskContract.Instances.TASK_ID+ ")"
+		+ " LEFT JOIN "+ Tables.PROPERTIES + " ON (" + Tables.TASKS + "." + Tasks._ID + "=" + Tables.PROPERTIES + "." + Properties.TASK_ID +")";
+	
+	
+	/**
+	 * SQL command to drop the task view
+	 */
+	private final static String SQL_DROP_INSTANCE_VIEW = "DROP VIEW " + Tables.INSTANCE_VIEW;
 	
 	/**
 	 * SQL command to create the instances table.
@@ -224,6 +256,26 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		+ TaskContract.Categories.ACCOUNT_TYPE + " TEXT,"
 		+ TaskContract.Categories.NAME + " TEXT,"
 		+ TaskContract.Categories.COLOR + " INTEGER);";
+	
+	/**
+	 * SQL command to create the categories table.
+	 */
+	private final static String SQL_CREATE_CATEGORIES_MAPPING_TABLE =
+		"CREATE TABLE " + Tables.CATEGORIES_MAPPING
+		+ " ( " + CategoriesMapping.TASK_ID + " INTEGER,"
+		+ CategoriesMapping.CATEGORY_ID + " INTEGER,"
+		+ "FOREIGN KEY (" + CategoriesMapping.TASK_ID +") REFERENCES "+ Tables.TASKS + "(" + TaskContract.Tasks._ID + "),"
+		+ "FOREIGN KEY (" + CategoriesMapping.CATEGORY_ID + ") REFERENCES " + Tables.CATEGORIES + "(" + TaskContract.Categories._ID + "));";
+	
+	
+	/**
+	 * SQL command to create the alarms table the stores the already triggered alarms
+	 */
+	private final static String SQL_CREATE_ALARMS_TABLE =
+		"CREATE TABLE " + Tables.ALARMS
+		+ " ( " + TaskContract.Alarms.ALARM_ID + " INTEGER,"
+		+ TaskContract.Alarms.LAST_TRIGGER + " TEXT,"
+		+ TaskContract.Alarms.NEXT_TRIGGER + " TEXT);";
 
 
 	/**
@@ -254,7 +306,11 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			+ TaskContract.Properties.SYNC1 + " TEXT,"
 			+ TaskContract.Properties.SYNC2 + " TEXT,"
 			+ TaskContract.Properties.SYNC3 + " TEXT,"
-			+ TaskContract.Properties.SYNC4 + " TEXT);";
+			+ TaskContract.Properties.SYNC4 + " TEXT,"
+			+ TaskContract.Properties.SYNC5 + " TEXT,"
+			+ TaskContract.Properties.SYNC6 + " TEXT,"
+			+ TaskContract.Properties.SYNC7 + " TEXT,"
+			+ TaskContract.Properties.SYNC8 + " TEXT);";
 			
     // @formatter:on
 
@@ -320,7 +376,6 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 
 		// / create instancees table and view
 		db.execSQL(SQL_CREATE_INSTANCES_TABLE);
-		db.execSQL(SQL_CREATE_INSTANCE_VIEW);
 
 		// create indices
 		db.execSQL(createIndexString(Tables.INSTANCES, TaskContract.Instances.TASK_ID, TaskContract.Instances.INSTANCE_START,
@@ -332,11 +387,18 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		// create categories table
 		db.execSQL(SQL_CREATE_CATEGORIES_TABLE);
 
+		// create categories mapping table
+		db.execSQL(SQL_CREATE_CATEGORIES_MAPPING_TABLE);
+
+		// create alarms table
+		db.execSQL(SQL_CREATE_ALARMS_TABLE);
+
 		// create properties table
 		db.execSQL(SQL_CREATE_PROPERTIES_TABLE);
 
 		// create views
 		db.execSQL(SQL_CREATE_TASK_VIEW);
+		db.execSQL(SQL_CREATE_INSTANCE_VIEW);
 
 		// insert initial list
 		db.execSQL("insert into " + Tables.LISTS + " (" + TaskLists.ACCOUNT_TYPE + ", " + TaskLists.ACCOUNT_NAME + ", " + TaskLists.LIST_NAME + ", "
@@ -372,6 +434,26 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			db.execSQL("UPDATE " + Tables.INSTANCES + " SET " + TaskContract.Instances.INSTANCE_START_SORTING + " = " + TaskContract.Instances.INSTANCE_START
 				+ ", " + TaskContract.Instances.INSTANCE_DUE_SORTING + " = " + TaskContract.Instances.INSTANCE_DUE);
 		}
-	}
+		if (oldVersion < 4)
+		{
+			// add column sync5 - sync8 to property table
+			db.execSQL("ALTER TABLE " + Tables.PROPERTIES + " ADD COLUMN " + TaskContract.PropertySyncColumns.SYNC5 + " TEXT");
+			db.execSQL("ALTER TABLE " + Tables.PROPERTIES + " ADD COLUMN " + TaskContract.PropertySyncColumns.SYNC6 + " TEXT");
+			db.execSQL("ALTER TABLE " + Tables.PROPERTIES + " ADD COLUMN " + TaskContract.PropertySyncColumns.SYNC7 + " TEXT");
+			db.execSQL("ALTER TABLE " + Tables.PROPERTIES + " ADD COLUMN " + TaskContract.PropertySyncColumns.SYNC8 + " TEXT");
 
+			// create categories mapping table
+			db.execSQL(SQL_CREATE_CATEGORIES_MAPPING_TABLE);
+
+			// create alarms table
+			db.execSQL(SQL_CREATE_ALARMS_TABLE);
+
+			// update views
+			db.execSQL(SQL_DROP_TASK_VIEW);
+			db.execSQL(SQL_DROP_INSTANCE_VIEW);
+			db.execSQL(SQL_CREATE_TASK_VIEW);
+			db.execSQL(SQL_CREATE_INSTANCE_VIEW);
+		}
+
+	}
 }

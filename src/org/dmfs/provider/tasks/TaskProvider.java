@@ -26,9 +26,12 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TimeZone;
 
+import org.dmfs.provider.tasks.TaskContract.Alarms;
+import org.dmfs.provider.tasks.TaskContract.Categories;
 import org.dmfs.provider.tasks.TaskContract.CategoriesColumns;
 import org.dmfs.provider.tasks.TaskContract.CommonSyncColumns;
 import org.dmfs.provider.tasks.TaskContract.Instances;
+import org.dmfs.provider.tasks.TaskContract.Properties;
 import org.dmfs.provider.tasks.TaskContract.TaskColumns;
 import org.dmfs.provider.tasks.TaskContract.TaskListColumns;
 import org.dmfs.provider.tasks.TaskContract.TaskListSyncColumns;
@@ -36,6 +39,8 @@ import org.dmfs.provider.tasks.TaskContract.TaskLists;
 import org.dmfs.provider.tasks.TaskContract.TaskSyncColumns;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
+import org.dmfs.provider.tasks.handler.PropertyHandler;
+import org.dmfs.provider.tasks.handler.PropertyHandlerFactory;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
@@ -84,6 +89,10 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	private static final int INSTANCE_ID = 104;
 	private static final int CATEGORIES = 1001;
 	private static final int CATEGORY_ID = 1002;
+	private static final int PROPERTIES = 1003;
+	private static final int PROPERTY_ID = 1004;
+	private static final int ALARMS = 1005;
+	private static final int ALARM_ID = 1006;
 
 	private static final UriMatcher uriMatcher;
 
@@ -547,9 +556,48 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 					count = db.update(Tables.TASKS, values, selection, selectionArgs);
 				}
 				break;
-			case CATEGORIES:
-				break;
+
 			case CATEGORY_ID:
+				// add id to selection and fall through
+				selection = updateSelection(selectId(uri), selection);
+
+			case CATEGORIES:
+				// deletion of categories is currently not supported
+				break;
+
+			case ALARM_ID:
+				// add id to selection and fall through
+				selection = updateSelection(selectId(uri), selection);
+
+			case ALARMS:
+
+				count = db.delete(Tables.ALARMS, selection, selectionArgs);
+				break;
+
+			case PROPERTY_ID:
+				// add id to selection and fall through
+				StringBuilder idBuilder = selectId(uri);
+				selection = updateSelection(idBuilder, selection);
+				String id = idBuilder.toString();
+
+				String[] queryProjection = { Properties.MIMETYPE };
+				String[] queryArgs = { id };
+				String querySelection = Properties._ID + " =?";
+
+				Cursor cursor = db.query(Tables.PROPERTIES, queryProjection, querySelection, queryArgs, null, null, null);
+
+				if (cursor != null && cursor.getCount() == 1)
+				{
+					cursor.moveToFirst();
+					String mimeType = cursor.getString(0);
+					PropertyHandler handler = PropertyHandlerFactory.create(mimeType);
+					count = handler.delete(db, id, uri, selection, selectionArgs, isSyncAdapter);
+				}
+
+				break;
+
+			case PROPERTIES:
+
 				break;
 
 			default:
@@ -624,10 +672,26 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				break;
 
 			case CATEGORIES:
-				// TODO
+				validateCategoryValues(values, true, isSyncAdapter);
 				rowId = db.insert(Tables.CATEGORIES, "", values);
 				result_uri = TaskContract.Categories.CONTENT_URI;
 				break;
+
+			case ALARMS:
+				validateCategoryValues(values, true, isSyncAdapter);
+				rowId = db.insert(Tables.ALARMS, "", values);
+				result_uri = TaskContract.Categories.CONTENT_URI;
+				break;
+
+			case PROPERTIES:
+				// TODO: validate properties
+				PropertyHandler handler = PropertyHandlerFactory.create(values.getAsString(Properties.MIMETYPE));
+				rowId = handler.insert(db, values, isSyncAdapter);
+
+				rowId = db.insert(Tables.PROPERTIES, "", values);
+				result_uri = TaskContract.Properties.CONTENT_URI;
+				break;
+
 			default:
 				throw new IllegalArgumentException("Unknown URI " + uri);
 		}
@@ -696,10 +760,32 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				String taskSelection = updateSelection(selectTaskId(uri), selection).toString();
 				updateInstancesOfOneTask(db, getId(uri), values, taskSelection, selectionArgs);
 				break;
+			case PROPERTIES:
+				// TODO: support bulk property update
+				break;
+			case PROPERTY_ID:
+				String newPropertySelection = updateSelection(selectId(uri), selection);
+				PropertyHandler handler = PropertyHandlerFactory.create(values.getAsString(Properties.MIMETYPE));
+				count = handler.update(db, values, newPropertySelection, selectionArgs, isSyncAdapter);
+				break;
+
 			case CATEGORIES:
+				// TODO: support bulk category update
 				break;
 			case CATEGORY_ID:
+				String newCategorySelection = updateSelection(selectId(uri), selection);
+				validateCategoryValues(values, false, isSyncAdapter);
+				count = db.update(Tables.CATEGORIES, values, newCategorySelection, selectionArgs);
 				break;
+			case ALARMS:
+				// TODO: support bulk alarm update
+				break;
+			case ALARM_ID:
+				String newAlarmSelection = updateSelection(selectId(uri), selection);
+				validateAlarmValues(values, false, isSyncAdapter);
+				count = db.update(Tables.ALARMS, values, newAlarmSelection, selectionArgs);
+				break;
+
 			default:
 				throw new IllegalArgumentException("Unknown URI " + uri);
 		}
@@ -1280,6 +1366,58 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	}
 
 
+	/**
+	 * Validate the given category values.
+	 * 
+	 * @param values
+	 *            The category properties to validate.
+	 * @throws IllegalArgumentException
+	 *             if any of the values is invalid.
+	 */
+	private void validateCategoryValues(ContentValues values, boolean isNew, boolean isSyncAdapter)
+	{
+		// row id can not be changed or set manually
+		if (values.containsKey(Categories._ID))
+		{
+			throw new IllegalArgumentException("_ID can not be set manually");
+		}
+
+		if (isNew != values.containsKey(Categories.ACCOUNT_NAME) && (!isNew || values.get(Categories.ACCOUNT_NAME) != null))
+		{
+			throw new IllegalArgumentException("ACCOUNT_NAME is write-once and required on INSERT");
+		}
+
+		if (isNew != values.containsKey(Categories.ACCOUNT_TYPE) && (!isNew || values.get(Categories.ACCOUNT_TYPE) != null))
+		{
+			throw new IllegalArgumentException("ACCOUNT_TYPE is write-once and required on INSERT");
+		}
+	}
+
+
+	/**
+	 * Validate the given alarm values.
+	 * 
+	 * @param values
+	 *            The alarm values to validate
+	 * @throws IllegalArgumentException
+	 *             if any of the values is invalid.
+	 */
+	private void validateAlarmValues(ContentValues values, boolean isNew, boolean isSyncAdapter)
+	{
+
+		if (isNew && !values.containsKey(Alarms.ALARM_ID))
+		{
+			throw new IllegalArgumentException("Alarms require a reference ALARM_ID");
+		}
+
+		if ((values.containsKey(Alarms.LAST_TRIGGER) && values.getAsLong(Alarms.LAST_TRIGGER) < 0)
+			|| (values.containsKey(Alarms.NEXT_TRIGGER) && values.getAsLong(Alarms.NEXT_TRIGGER) < 0))
+		{
+			throw new IllegalArgumentException("invalid time values were passed");
+		}
+	}
+
+
 	@Override
 	public String getType(Uri uri)
 	{
@@ -1313,8 +1451,14 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Instances.CONTENT_URI_PATH, INSTANCES);
 		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Instances.CONTENT_URI_PATH + "/#", INSTANCE_ID);
 
+		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Properties.CONTENT_URI_PATH, PROPERTIES);
+		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Properties.CONTENT_URI_PATH + "/#", PROPERTY_ID);
+
 		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Categories.CONTENT_URI_PATH, CATEGORIES);
 		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Categories.CONTENT_URI_PATH + "/#", CATEGORY_ID);
+
+		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Alarms.CONTENT_URI_PATH, ALARMS);
+		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Alarms.CONTENT_URI_PATH + "/#", ALARM_ID);
 	}
 
 

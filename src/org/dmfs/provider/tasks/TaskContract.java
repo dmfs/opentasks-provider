@@ -37,6 +37,7 @@ import android.net.Uri;
  * </p>
  * 
  * @author Marten Gajda <marten@dmfs.org>
+ * @author Tobias Reinsch <tobias@dmfs.org>
  */
 public final class TaskContract
 {
@@ -963,6 +964,38 @@ public final class TaskContract
 
 	}
 
+	public interface AlarmsColumns
+	{
+		public static final String ALARM_ID = "alarm_id";
+
+		public static final String LAST_TRIGGER = "last_trigger";
+
+		public static final String NEXT_TRIGGER = "next_trigger";
+	}
+
+	public static final class Alarms implements AlarmsColumns
+	{
+
+		public static final String CONTENT_URI_PATH = "alarms";
+
+		public static final Uri CONTENT_URI = Uri.parse("content://" + AUTHORITY + "/" + CONTENT_URI_PATH);
+
+		public static final int ALARM_TYPE_NOTHING = 0;
+
+		public static final int ALARM_TYPE_MESSAGE = 1;
+
+		public static final int ALARM_TYPE_EMAIL = 2;
+
+		public static final int ALARM_TYPE_SMS = 3;
+
+		public static final int ALARM_TYPE_SOUND = 4;
+
+		public static final int ALARM_REFERENCE_DUE_DATE = 1;
+
+		public static final int ALARM_REFERENCE_START_DATE = 2;
+
+	}
+
 	public interface PropertySyncColumns
 	{
 		public static final String SYNC1 = "prop_sync1";
@@ -1101,6 +1134,10 @@ public final class TaskContract
 			public final static String RSVP = DATA4;
 		}
 
+		/**
+		 * Categories are immutable. For creation is either the category id or name necessary
+		 * 
+		 */
 		public static interface Category extends PropertyColumns
 		{
 			/**
@@ -1115,6 +1152,25 @@ public final class TaskContract
 			 * </p>
 			 */
 			public final static String CATEGORY_ID = DATA0;
+
+			/**
+			 * The name of the category
+			 * <p>
+			 * Value: String
+			 * </p>
+			 */
+			public final static String CATEGORY_NAME = DATA1;
+
+			/**
+			 * The decimal coded color of the category
+			 * <p>
+			 * Value: Integer
+			 * </p>
+			 * <p>
+			 * read-only
+			 * </p>
+			 */
+			public final static String CATEGORY_COLOR = DATA2;
 		}
 
 		public static interface Comment extends PropertyColumns
@@ -1163,6 +1219,46 @@ public final class TaskContract
 			public final static String RELATED_ID = DATA1;
 
 			public final static String RELATED_TYPE = DATA2;
+		}
+
+		public static interface Alarm extends PropertyColumns
+		{
+			/**
+			 * The mime-type of this property.
+			 */
+			public final static String CONTENT_ITEM_TYPE = ContentResolver.CURSOR_ITEM_BASE_TYPE + "/alarm";
+
+			/**
+			 * Number of minutes from the reference date when the alarm goes off
+			 * <p>
+			 * Value: Integer
+			 * </p>
+			 */
+			public final static String MINUTES_BEFORE = DATA0;
+
+			/**
+			 * The reference date for the alarm (either start date or due date of the task)
+			 * <p>
+			 * Value: Integer
+			 * </p>
+			 */
+			public final static String REFERENCE = DATA1;
+
+			/**
+			 * A message that appears with the alarm
+			 * <p>
+			 * Value: String
+			 * </p>
+			 */
+			public final static String MESSAGE = DATA2;
+
+			/**
+			 * The type of the alarm
+			 * <p>
+			 * Value: Integer
+			 * </p>
+			 */
+			public final static String ALARM_TYPE = DATA3;
 		}
 
 	}
