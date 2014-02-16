@@ -40,7 +40,7 @@ import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.accounts.OnAccountsUpdateListener;
-import android.content.ContentProvider;
+import android.annotation.TargetApi;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
@@ -49,8 +49,10 @@ import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
+import android.os.Build;
 import android.text.TextUtils;
 import android.text.format.Time;
 import android.util.Log;
@@ -58,8 +60,6 @@ import android.util.Log;
 
 /**
  * The provider for tasks.
- * 
- * TODO: add support for transactions
  * 
  * TODO: add support for recurring tasks
  * 
@@ -70,9 +70,10 @@ import android.util.Log;
  * TODO: refactor the selection stuff
  * 
  * @author Marten Gajda <marten@dmfs.org>
+ * @author Tobias Reinsch <tobias@dmfs.org>
  * 
  */
-public final class TaskProvider extends ContentProvider implements OnAccountsUpdateListener
+public final class TaskProvider extends SQLiteContentProvider implements OnAccountsUpdateListener
 {
 
 	private static final int LISTS = 1;
@@ -112,9 +113,21 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 	private final static Integer ONE = 1;
 
 	/**
-	 * The actual task database.
+	 * The task database helper that provides access to the actual database.
 	 */
-	private SQLiteDatabase mTaskDb;
+	private TaskDatabaseHelper mDBHelper;
+
+
+	@Override
+	public boolean onCreate()
+	{
+		boolean wasCreated = super.onCreate();
+
+		// register for account updates and check immediately
+		AccountManager.get(getContext()).addOnAccountsUpdatedListener(this, null, true);
+
+		return wasCreated;
+	}
 
 
 	/**
@@ -125,7 +138,8 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 	 *            The {@link Uri} to check.
 	 * @return <code>true</code> if the caller pretends to be a sync adapter, <code>false</code> otherwise.
 	 */
-	protected boolean getIsCallerSyncAdapter(Uri uri)
+	@Override
+	public boolean isCallerSyncAdapter(Uri uri)
 	{
 		String param = uri.getQueryParameter(TaskContract.CALLER_IS_SYNCADAPTER);
 		return param != null && !"false".equals(param);
@@ -359,27 +373,14 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 
 
 	@Override
-	public boolean onCreate()
-	{
-		Context context = getContext();
-		TaskDatabaseHelper dbHelper = new TaskDatabaseHelper(context);
-		mTaskDb = dbHelper.getWritableDatabase();
-
-		// register for account updates and check immediately
-		AccountManager.get(context).addOnAccountsUpdatedListener(this, null, true);
-
-		return mTaskDb != null;
-	}
-
-
-	@Override
 	public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder)
 	{
 
+		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
 		SQLiteQueryBuilder sqlBuilder = new SQLiteQueryBuilder();
 		// initialize appendWhere, this allows us to append all other selections with a preceding "AND"
 		sqlBuilder.appendWhere(" 1=1 ");
-		boolean isSyncAdapter = getIsCallerSyncAdapter(uri);
+		boolean isSyncAdapter = isCallerSyncAdapter(uri);
 
 		switch (uriMatcher.match(uri))
 		{
@@ -473,7 +474,7 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 				throw new IllegalArgumentException("Unknown URI " + uri);
 		}
 
-		Cursor c = sqlBuilder.query(mTaskDb, projection, selection, selectionArgs, null, null, sortOrder);
+		Cursor c = sqlBuilder.query(db, projection, selection, selectionArgs, null, null, sortOrder);
 
 		if (c != null)
 		{
@@ -484,12 +485,10 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 
 
 	@Override
-	public int delete(Uri uri, String selection, String[] selectionArgs)
+	public int deleteInTransaction(Uri uri, String selection, String[] selectionArgs, boolean isSyncAdapter)
 	{
-
+		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
 		int count = 0;
-
-		boolean isSyncAdapter = getIsCallerSyncAdapter(uri);
 		String accountName = getAccountName(uri);
 		String accountType = getAccountType(uri);
 
@@ -512,7 +511,7 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 
 					selection = updateSelection(selectAccount(uri), selection);
 
-					count = mTaskDb.delete(Tables.LISTS, selection, selectionArgs);
+					count = db.delete(Tables.LISTS, selection, selectionArgs);
 				}
 				else
 				{
@@ -537,7 +536,7 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 					}
 
 					// only sync adapters can delete tasks
-					count = mTaskDb.delete(Tables.TASKS, selection, selectionArgs);
+					count = db.delete(Tables.TASKS, selection, selectionArgs);
 				}
 				else
 				{
@@ -545,7 +544,7 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 					ContentValues values = new ContentValues();
 					values.put(TaskSyncColumns._DELETED, true);
 					values.put(CommonSyncColumns._DIRTY, true);
-					count = mTaskDb.update(Tables.TASKS, values, selection, selectionArgs);
+					count = db.update(Tables.TASKS, values, selection, selectionArgs);
 				}
 				break;
 			case CATEGORIES:
@@ -559,22 +558,21 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 
 		if (count > 0)
 		{
-			getContext().getContentResolver().notifyChange(uri, null);
-			getContext().getContentResolver().notifyChange(Instances.CONTENT_URI, null);
-			getContext().getContentResolver().notifyChange(Tasks.CONTENT_URI, null);
-			Utils.sendActionProviderChangedBroadCast(getContext());
+			postNotifyUri(uri);
+			postNotifyUri(Instances.CONTENT_URI);
+			postNotifyUri(Tasks.CONTENT_URI);
 		}
 		return count;
 	}
 
 
 	@Override
-	public Uri insert(Uri uri, ContentValues values)
+	public Uri insertInTransaction(Uri uri, ContentValues values, boolean isSyncAdapter)
 	{
+		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
 		long rowId = 0;
 		Uri result_uri = null;
 
-		boolean isSyncAdapter = getIsCallerSyncAdapter(uri);
 		String accountName = getAccountName(uri);
 		String accountType = getAccountType(uri);
 
@@ -593,7 +591,7 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 
 					values.put(TaskContract.ACCOUNT_NAME, accountName);
 					values.put(TaskContract.ACCOUNT_TYPE, accountType);
-					rowId = mTaskDb.insert(Tables.LISTS, "", values);
+					rowId = db.insert(Tables.LISTS, "", values);
 					result_uri = TaskContract.TaskLists.CONTENT_URI;
 				}
 				else
@@ -603,7 +601,7 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 				break;
 
 			case TASKS:
-				validateTaskValues(values, true, isSyncAdapter);
+				validateTaskValues(db, values, true, isSyncAdapter);
 
 				if (!isSyncAdapter)
 				{
@@ -617,17 +615,17 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 				}
 
 				// insert task
-				rowId = mTaskDb.insert(Tables.TASKS, "", values);
+				rowId = db.insert(Tables.TASKS, "", values);
 
 				// add entries to Instances
-				createInstances(uri, values, rowId);
+				createInstances(db, uri, values, rowId);
 
 				result_uri = TaskContract.Tasks.CONTENT_URI;
 				break;
 
 			case CATEGORIES:
 				// TODO
-				rowId = mTaskDb.insert(Tables.CATEGORIES, "", values);
+				rowId = db.insert(Tables.CATEGORIES, "", values);
 				result_uri = TaskContract.Categories.CONTENT_URI;
 				break;
 			default:
@@ -637,14 +635,97 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 		if (rowId > 0 && result_uri != null)
 		{
 			result_uri = ContentUris.withAppendedId(result_uri, rowId);
-			getContext().getContentResolver().notifyChange(result_uri, null);
-			getContext().getContentResolver().notifyChange(uri, null);
-
-			Utils.sendActionProviderChangedBroadCast(getContext());
-
+			postNotifyUri(result_uri);
+			postNotifyUri(uri);
 			return result_uri;
 		}
 		throw new SQLException("Failed to insert row into " + uri);
+	}
+
+
+	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
+	@Override
+	public int updateInTransaction(Uri uri, ContentValues values, String selection, String[] selectionArgs, boolean isSyncAdapter)
+	{
+		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
+		int count = 0;
+		switch (uriMatcher.match(uri))
+		{
+			case LISTS:
+				validateTaskListValues(values, false, isSyncAdapter);
+
+				count = db.update(Tables.LISTS, values, selection, selectionArgs);
+				break;
+			case LIST_ID:
+				String newListSelection = updateSelection(selectId(uri), selection);
+
+				validateTaskListValues(values, false, isSyncAdapter);
+
+				count = db.update(Tables.LISTS, values, newListSelection, selectionArgs);
+				break;
+			case TASKS:
+				// validate tasks
+				validateTaskValues(db, values, false, isSyncAdapter);
+
+				if (!isSyncAdapter)
+				{
+					// mark task as dirty
+					values.put(CommonSyncColumns._DIRTY, true);
+					values.put(TaskColumns.LAST_MODIFIED, System.currentTimeMillis());
+				}
+
+				// perform updates
+				count = db.update(Tables.TASKS, values, selection, selectionArgs);
+
+				// update related instances
+				updateInstancesOfAllTasks(db, values, selection, selectionArgs);
+
+				break;
+			case TASK_ID:
+				String newSelection = updateSelection(selectId(uri), selection);
+
+				validateTaskValues(db, values, false, isSyncAdapter);
+
+				if (!isSyncAdapter)
+				{
+					// mark task as dirty
+					values.put(CommonSyncColumns._DIRTY, true);
+					values.put(TaskColumns.LAST_MODIFIED, System.currentTimeMillis());
+				}
+				count = db.update(Tables.TASKS, values, newSelection, selectionArgs);
+				String taskSelection = updateSelection(selectTaskId(uri), selection).toString();
+				updateInstancesOfOneTask(db, getId(uri), values, taskSelection, selectionArgs);
+				break;
+			case CATEGORIES:
+				break;
+			case CATEGORY_ID:
+				break;
+			default:
+				throw new IllegalArgumentException("Unknown URI " + uri);
+		}
+
+		// get the keys in values
+		Set<String> keys;
+		if (android.os.Build.VERSION.SDK_INT < 11)
+		{
+			keys = new HashSet<String>();
+			for (Entry<String, Object> entry : values.valueSet())
+			{
+				keys.add(entry.getKey());
+			}
+		}
+		else
+		{
+			keys = values.keySet();
+		}
+
+		if (!TASK_LIST_SYNC_COLUMNS.containsAll(keys))
+		{
+			// send notifications, because non-sync columns have been updated
+			postNotifyUri(uri);
+		}
+
+		return count;
 	}
 
 
@@ -727,9 +808,8 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 	 * @param rowId
 	 *            The new {@link RowId} of the task.
 	 */
-	private void createInstances(Uri uri, ContentValues values, long rowId)
+	private void createInstances(SQLiteDatabase db, Uri uri, ContentValues values, long rowId)
 	{
-
 		ContentValues instanceValues = setInstanceTimes(values);
 
 		// set rowID of current Task
@@ -753,96 +833,8 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 			instanceValues.put(Instances.INSTANCE_DUE_SORTING, instanceDue + (tz == null || allday ? 0 : TimeZone.getTimeZone(tz).getOffset(instanceDue)));
 		}
 
-		mTaskDb.insert(Tables.INSTANCES, null, instanceValues);
-		getContext().getContentResolver().notifyChange(Instances.CONTENT_URI, null);
-	}
-
-
-	@Override
-	public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs)
-	{
-		int count = 0;
-
-		boolean isSyncAdapter = getIsCallerSyncAdapter(uri);
-		switch (uriMatcher.match(uri))
-		{
-			case LISTS:
-				validateTaskListValues(values, false, isSyncAdapter);
-
-				count = mTaskDb.update(Tables.LISTS, values, selection, selectionArgs);
-				break;
-			case LIST_ID:
-				String newListSelection = updateSelection(selectId(uri), selection);
-
-				validateTaskListValues(values, false, isSyncAdapter);
-
-				count = mTaskDb.update(Tables.LISTS, values, newListSelection, selectionArgs);
-				break;
-			case TASKS:
-				// validate tasks
-				validateTaskValues(values, false, isSyncAdapter);
-
-				if (!isSyncAdapter)
-				{
-					// mark task as dirty
-					values.put(CommonSyncColumns._DIRTY, true);
-					values.put(TaskColumns.LAST_MODIFIED, System.currentTimeMillis());
-				}
-
-				// perform updates
-				count = mTaskDb.update(Tables.TASKS, values, selection, selectionArgs);
-
-				// update related instances
-				updateInstancesOfAllTasks(values, selection, selectionArgs);
-
-				break;
-			case TASK_ID:
-				String newSelection = updateSelection(selectId(uri), selection);
-
-				validateTaskValues(values, false, isSyncAdapter);
-
-				if (!isSyncAdapter)
-				{
-					// mark task as dirty
-					values.put(CommonSyncColumns._DIRTY, true);
-					values.put(TaskColumns.LAST_MODIFIED, System.currentTimeMillis());
-				}
-				count = mTaskDb.update(Tables.TASKS, values, newSelection, selectionArgs);
-				String taskSelection = updateSelection(selectTaskId(uri), selection).toString();
-				updateInstancesOfOneTask(getId(uri), values, taskSelection, selectionArgs);
-				break;
-			case CATEGORIES:
-				break;
-			case CATEGORY_ID:
-				break;
-			default:
-				throw new IllegalArgumentException("Unknown URI " + uri);
-		}
-
-		// get the keys in values
-		Set<String> keys;
-		if (android.os.Build.VERSION.SDK_INT < 11)
-		{
-			keys = new HashSet<String>();
-			for (Entry<String, Object> entry : values.valueSet())
-			{
-				keys.add(entry.getKey());
-			}
-		}
-		else
-		{
-			keys = values.keySet();
-		}
-
-		if (!TASK_LIST_SYNC_COLUMNS.containsAll(keys))
-		{
-			// send notifications, because non-sync columns have been updated
-			getContext().getContentResolver().notifyChange(uri, null);
-
-			Utils.sendActionProviderChangedBroadCast(getContext());
-		}
-
-		return count;
+		db.insert(Tables.INSTANCES, null, instanceValues);
+		postNotifyUri(Instances.CONTENT_URI);
 	}
 
 
@@ -872,10 +864,10 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 	 * @param selectionArgs
 	 *            The selection arguments.
 	 */
-	private void updateInstancesOfAllTasks(ContentValues values, String selection, String[] selectionArgs)
+	private void updateInstancesOfAllTasks(SQLiteDatabase db, ContentValues values, String selection, String[] selectionArgs)
 	{
 		Log.i("UPDATE_INSTANCE", "In updateInstanceOfAllTask");
-		Cursor cursor = mTaskDb.query(Tables.TASKS, TASK_ID_PROJECTION, selection, selectionArgs, null, null, null, null);
+		Cursor cursor = db.query(Tables.TASKS, TASK_ID_PROJECTION, selection, selectionArgs, null, null, null, null);
 		if (cursor != null)
 		{
 			try
@@ -884,7 +876,7 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 				{
 					String taskId = cursor.getString(0);
 					String taskSelection = updateSelection(selectTaskId(taskId), selection).toString();
-					updateInstancesOfOneTask(taskId, values, taskSelection, selectionArgs);
+					updateInstancesOfOneTask(db, taskId, values, taskSelection, selectionArgs);
 				}
 			}
 			finally
@@ -895,7 +887,7 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 	}
 
 
-	private void updateInstancesOfOneTask(String task_id, ContentValues values, String selection, String[] selectionArgs)
+	private void updateInstancesOfOneTask(SQLiteDatabase db, String task_id, ContentValues values, String selection, String[] selectionArgs)
 	{
 		// check if either one of the following has been updated: DTSTART, DUE, DURATION, RRULE, RDATE, EXDATE
 		// right now we only update DTSTART, DUE and DURATION
@@ -949,8 +941,8 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 			instanceValues.putNull(Instances.INSTANCE_DUE_SORTING);
 		}
 
-		mTaskDb.update(Tables.INSTANCES, instanceValues, selection, selectionArgs);
-		getContext().getContentResolver().notifyChange(Instances.CONTENT_URI, null);
+		db.update(Tables.INSTANCES, instanceValues, selection, selectionArgs);
+		postNotifyUri(Instances.CONTENT_URI);
 	}
 
 
@@ -1003,7 +995,7 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 	 * @throws IllegalArgumentException
 	 *             if any of the values is invalid.
 	 */
-	private void validateTaskValues(ContentValues values, boolean isNew, boolean isSyncAdapter)
+	private void validateTaskValues(SQLiteDatabase db, ContentValues values, boolean isNew, boolean isSyncAdapter)
 	{
 		// row id can not be changed or set manually
 		if (values.containsKey(TaskColumns._ID))
@@ -1021,7 +1013,7 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 				throw new IllegalArgumentException("LIST_ID is required on INSERT");
 			}
 
-			Cursor cursor = mTaskDb.query(Tables.LISTS, TASKLIST_ID_PROJECTION, TASKLISTS_ID_SELECTION, listId, null, null, null);
+			Cursor cursor = db.query(Tables.LISTS, TASKLIST_ID_PROJECTION, TASKLISTS_ID_SELECTION, listId, null, null, null);
 			try
 			{
 				if (cursor == null || cursor.getCount() != 1)
@@ -1056,7 +1048,7 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 		if (values.get(Tasks.ORIGINAL_INSTANCE_SYNC_ID) != null)
 		{
 			String[] syncId = { values.getAsString(Tasks.ORIGINAL_INSTANCE_SYNC_ID) };
-			Cursor cursor = mTaskDb.query(Tables.TASKS, TASK_ID_PROJECTION, SYNC_ID_SELECTION, syncId, null, null, null);
+			Cursor cursor = db.query(Tables.TASKS, TASK_ID_PROJECTION, SYNC_ID_SELECTION, syncId, null, null, null);
 			try
 			{
 				if (cursor != null && cursor.getCount() == 1)
@@ -1077,7 +1069,7 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 		else if (values.get(Tasks.ORIGINAL_INSTANCE_ID) != null) // Find corresponding ORIGINAL_INSTANCE_SYNC_ID
 		{
 			String[] id = { values.getAsString(Tasks.ORIGINAL_INSTANCE_ID) };
-			Cursor cursor = mTaskDb.query(Tables.TASKS, TASK_SYNC_ID_PROJECTION, TASK_ID_SELECTION, id, null, null, null);
+			Cursor cursor = db.query(Tables.TASKS, TASK_SYNC_ID_PROJECTION, TASK_ID_SELECTION, id, null, null, null);
 			try
 			{
 				if (cursor != null && cursor.getCount() == 1)
@@ -1332,12 +1324,13 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 		// make a list of the accounts array
 		List<Account> accountList = Arrays.asList(accounts);
 
-		mTaskDb.beginTransaction();
+		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
+		db.beginTransaction();
 
 		try
 		{
-			Cursor c = mTaskDb.query(Tables.LISTS, new String[] { TaskListColumns._ID, TaskListSyncColumns.ACCOUNT_NAME, TaskListSyncColumns.ACCOUNT_TYPE },
-				null, null, null, null, null);
+			Cursor c = db.query(Tables.LISTS, new String[] { TaskListColumns._ID, TaskListSyncColumns.ACCOUNT_NAME, TaskListSyncColumns.ACCOUNT_TYPE }, null,
+				null, null, null, null);
 
 			// build a list of all task list ids that no longer have an account
 			List<Long> obsoleteLists = new ArrayList<Long>();
@@ -1374,14 +1367,14 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 			{
 				if (id != null)
 				{
-					mTaskDb.delete(Tables.LISTS, TaskListColumns._ID + "=" + id, null);
+					db.delete(Tables.LISTS, TaskListColumns._ID + "=" + id, null);
 				}
 			}
-			mTaskDb.setTransactionSuccessful();
+			db.setTransactionSuccessful();
 		}
 		finally
 		{
-			mTaskDb.endTransaction();
+			db.endTransaction();
 		}
 		// notify all observers
 		getContext().getContentResolver().notifyChange(TaskLists.CONTENT_URI, null);
@@ -1389,5 +1382,27 @@ public final class TaskProvider extends ContentProvider implements OnAccountsUpd
 		getContext().getContentResolver().notifyChange(Instances.CONTENT_URI, null);
 
 		Utils.sendActionProviderChangedBroadCast(getContext());
+	}
+
+
+	@Override
+	protected void onEndTransaction(boolean callerIsSyncAdapter)
+	{
+		super.onEndTransaction(callerIsSyncAdapter);
+		Utils.sendActionProviderChangedBroadCast(getContext());
+	};
+
+
+	@Override
+	public SQLiteOpenHelper getDatabaseHelper(Context context)
+	{
+		synchronized (this)
+		{
+			if (mDBHelper == null)
+			{
+				mDBHelper = new TaskDatabaseHelper(context);
+			}
+			return mDBHelper;
+		}
 	}
 }
