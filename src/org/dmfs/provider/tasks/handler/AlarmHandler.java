@@ -5,9 +5,7 @@ import org.dmfs.provider.tasks.TaskContract.Property;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
 
 import android.content.ContentValues;
-import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
-import android.net.Uri;
 
 
 /**
@@ -28,7 +26,7 @@ public class AlarmHandler extends PropertyHandler
 	public ContentValues validateValues(SQLiteDatabase db, boolean isNew, ContentValues values, boolean isSyncAdapter)
 	{
 		// row id can not be changed or set manually
-		if (values.containsKey(Property.Alarm._ID))
+		if (values.containsKey(Property.Alarm.PROPERTY_ID))
 		{
 			throw new IllegalArgumentException("_ID can not be set manually");
 		}
@@ -71,22 +69,5 @@ public class AlarmHandler extends PropertyHandler
 		// TODO: update alarms
 
 		return db.update(Tables.PROPERTIES, values, selection, selectionArgs);
-	}
-
-
-	@Override
-	public int delete(SQLiteDatabase db, String id, Uri uri, String selection, String[] selectionArgs, boolean isSyncAdapter)
-	{
-		// check for existing alarms and delete them
-		String[] queryArgs = { id };
-		Cursor cursor = db.query(Tables.ALARMS, ALARM_ID_PROJECTION, ALARM_SELECTION, queryArgs, null, null, null);
-
-		if (cursor != null && cursor.getCount() > 0)
-		{
-			String[] deleteArgs = { id };
-			db.delete(Tables.ALARMS, ALARM_SELECTION, deleteArgs);
-		}
-
-		return super.delete(db, id, uri, selection, selectionArgs, isSyncAdapter);
 	}
 }

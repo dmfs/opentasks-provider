@@ -23,8 +23,8 @@ public class CategoryHandler extends PropertyHandler
 
 	private static final String[] CATEGORY_ID_PROJECTION = { Categories._ID, Categories.NAME, Categories.COLOR };
 
-	private static final String CATEGORY_SELECTION = Categories._ID + "=? or " + Categories.NAME + "=?) and " + Categories.ACCOUNT_NAME + "=? and "
-		+ Categories.ACCOUNT_TYPE + "=?";
+	private static final String CATEGORY_ID_SELECTION = Categories._ID + "=? and " + Categories.ACCOUNT_NAME + "=? and " + Categories.ACCOUNT_TYPE + "=?";
+	private static final String CATEGORY_NAME_SELECTION = Categories.NAME + "=? and " + Categories.ACCOUNT_NAME + "=? and " + Categories.ACCOUNT_TYPE + "=?";
 
 	public static final String IS_NEW_CATEGORY = "is_new_category";
 
@@ -35,10 +35,14 @@ public class CategoryHandler extends PropertyHandler
 		// the category requires a name or an id
 		if (!values.containsKey(Category.CATEGORY_ID) && !values.containsKey(Category.CATEGORY_NAME))
 		{
-			throw new IllegalArgumentException("neiter an id nor a category name was supplied");
+			throw new IllegalArgumentException("Neiter an id nor a category name was supplied for the category property.");
 		}
 
 		// get the matching task & account for the property
+		if (!values.containsKey(Properties.TASK_ID))
+		{
+			throw new IllegalArgumentException("No task id was supplied for the category property");
+		}
 		String[] queryArgs = { values.getAsString(Properties.TASK_ID) };
 		String[] queryProjection = { Tasks.ACCOUNT_NAME, Tasks.ACCOUNT_TYPE };
 		String querySelection = Tasks._ID + "=?";
@@ -69,8 +73,21 @@ public class CategoryHandler extends PropertyHandler
 		if (accountName != null && accountType != null)
 		{
 			// search for matching categories
-			String[] categoryArgs = { values.getAsString(Category.CATEGORY_ID), values.getAsString(Category.CATEGORY_NAME), accountName, accountType };
-			Cursor cursor = db.query(Tables.CATEGORIES, CATEGORY_ID_PROJECTION, CATEGORY_SELECTION, categoryArgs, null, null, null);
+			String[] categoryArgs;
+			Cursor cursor;
+
+			if (values.containsKey(Categories._ID))
+			{
+				// serach by ID
+				categoryArgs = new String[] { values.getAsString(Category.CATEGORY_ID), accountName, accountType };
+				cursor = db.query(Tables.CATEGORIES, CATEGORY_ID_PROJECTION, CATEGORY_ID_SELECTION, categoryArgs, null, null, null);
+			}
+			else
+			{
+				// search by name
+				categoryArgs = new String[] { values.getAsString(Category.CATEGORY_NAME), accountName, accountType };
+				cursor = db.query(Tables.CATEGORIES, CATEGORY_ID_PROJECTION, CATEGORY_NAME_SELECTION, categoryArgs, null, null, null);
+			}
 			try
 			{
 				if (cursor != null && cursor.getCount() == 1)

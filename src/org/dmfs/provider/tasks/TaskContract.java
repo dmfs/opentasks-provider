@@ -58,6 +58,11 @@ public final class TaskContract
 	public static final String CALLER_IS_SYNCADAPTER = "caller_is_syncadapter";
 
 	/**
+	 * URI parameter to signal the request of the extended properties of a task.
+	 */
+	public static final String LOAD_PROPERTIES = "load_properties";
+
+	/**
 	 * URI parameter to submit the account name of the account we operate on.
 	 */
 	public static final String ACCOUNT_NAME = "account_name";
@@ -1018,7 +1023,7 @@ public final class TaskContract
 	public interface PropertyColumns
 	{
 
-		public static final String _ID = "_id";
+		public static final String PROPERTY_ID = "property_id";
 
 		public static final String TASK_ID = "task_id";
 

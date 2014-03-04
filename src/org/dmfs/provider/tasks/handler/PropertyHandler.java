@@ -4,7 +4,6 @@ import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
 
 import android.content.ContentValues;
 import android.database.sqlite.SQLiteDatabase;
-import android.net.Uri;
 
 
 /**
@@ -82,7 +81,7 @@ public abstract class PropertyHandler
 	}
 
 
-	public int delete(SQLiteDatabase db, String id, Uri uri, String selection, String[] selectionArgs, boolean isSyncAdapter)
+	public int delete(SQLiteDatabase db, String selection, String[] selectionArgs, boolean isSyncAdapter)
 	{
 		return db.delete(Tables.PROPERTIES, selection, selectionArgs);
 

@@ -32,6 +32,7 @@ import org.dmfs.provider.tasks.TaskContract.CategoriesColumns;
 import org.dmfs.provider.tasks.TaskContract.CommonSyncColumns;
 import org.dmfs.provider.tasks.TaskContract.Instances;
 import org.dmfs.provider.tasks.TaskContract.Properties;
+import org.dmfs.provider.tasks.TaskContract.PropertyColumns;
 import org.dmfs.provider.tasks.TaskContract.TaskColumns;
 import org.dmfs.provider.tasks.TaskContract.TaskListColumns;
 import org.dmfs.provider.tasks.TaskContract.TaskListSyncColumns;
@@ -151,6 +152,20 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	public boolean isCallerSyncAdapter(Uri uri)
 	{
 		String param = uri.getQueryParameter(TaskContract.CALLER_IS_SYNCADAPTER);
+		return param != null && !"false".equals(param);
+	}
+
+
+	/**
+	 * Return true if the URI indicates to a load extended properties with {@link TaskContract#LOAD_PROPERTIES}.
+	 * 
+	 * @param uri
+	 *            The {@link Uri} to check.
+	 * @return <code>true</code> if the URI requests to load extended properties, <code>false</code> otherwise.
+	 */
+	public boolean shouldLoadProperties(Uri uri)
+	{
+		String param = uri.getQueryParameter(TaskContract.LOAD_PROPERTIES);
 		return param != null && !"false".equals(param);
 	}
 
@@ -336,6 +351,19 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	}
 
 
+	protected StringBuilder selectPropertyId(Uri uri)
+	{
+		StringBuilder sb = new StringBuilder(128);
+		return selectPropertyId(sb, uri);
+	}
+
+
+	protected StringBuilder selectPropertyId(StringBuilder sb, Uri uri)
+	{
+		return _selectId(sb, getId(uri), PropertyColumns.PROPERTY_ID);
+	}
+
+
 	/**
 	 * Add a selection by ID to the given {@link SQLiteQueryBuilder}. The id is taken from the given Uri.
 	 * 
@@ -412,7 +440,15 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				break;
 
 			case TASKS:
-				sqlBuilder.setTables(Tables.TASKS_VIEW);
+				if (shouldLoadProperties(uri))
+				{
+					// extended properties were requested, therefore change to task view that includes these properties
+					sqlBuilder.setTables(Tables.TASKS_VIEW);
+				}
+				else
+				{
+					sqlBuilder.setTables(Tables.TASKS);
+				}
 				if (!isSyncAdapter)
 				{
 					// do not return deleted rows if caller is not a sync adapter
@@ -425,7 +461,15 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				break;
 
 			case TASK_ID:
-				sqlBuilder.setTables(Tables.TASKS_VIEW);
+				if (shouldLoadProperties(uri))
+				{
+					// extended properties were requested, therefore change to task view that includes these properties
+					sqlBuilder.setTables(Tables.TASKS_VIEW);
+				}
+				else
+				{
+					sqlBuilder.setTables(Tables.TASKS);
+				}
 				selectId(sqlBuilder, TaskColumns._ID, uri);
 				if (!isSyncAdapter)
 				{
@@ -439,7 +483,15 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				break;
 
 			case INSTANCES:
-				sqlBuilder.setTables(Tables.INSTANCE_VIEW);
+				if (shouldLoadProperties(uri))
+				{
+					// extended properties were requested, therefore change to instance view that includes these properties
+					sqlBuilder.setTables(Tables.INSTANCE_PROPERTY_VIEW);
+				}
+				else
+				{
+					sqlBuilder.setTables(Tables.INSTANCE_VIEW);
+				}
 				if (!isSyncAdapter)
 				{
 					// do not return deleted rows if caller is not a sync adapter
@@ -452,7 +504,15 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				break;
 
 			case INSTANCE_ID:
-				sqlBuilder.setTables(Tables.INSTANCE_VIEW);
+				if (shouldLoadProperties(uri))
+				{
+					// extended properties were requested, therefore change to instance view that includes these properties
+					sqlBuilder.setTables(Tables.INSTANCE_PROPERTY_VIEW);
+				}
+				else
+				{
+					sqlBuilder.setTables(Tables.INSTANCE_VIEW);
+				}
 				selectId(sqlBuilder, Instances._ID, uri);
 				if (!isSyncAdapter)
 				{
@@ -575,23 +635,19 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				break;
 
 			case PROPERTY_ID:
-				// add id to selection and fall through
-				StringBuilder idBuilder = selectId(uri);
-				selection = updateSelection(idBuilder, selection);
-				String id = idBuilder.toString();
-
 				String[] queryProjection = { Properties.MIMETYPE };
-				String[] queryArgs = { id };
-				String querySelection = Properties._ID + " =?";
+				selection = updateSelection(selectPropertyId(uri), selection);
 
-				Cursor cursor = db.query(Tables.PROPERTIES, queryProjection, querySelection, queryArgs, null, null, null);
+				Cursor cursor = db.query(Tables.PROPERTIES, queryProjection, selection, selectionArgs, null, null, null);
 
 				if (cursor != null && cursor.getCount() == 1)
 				{
 					cursor.moveToFirst();
 					String mimeType = cursor.getString(0);
 					PropertyHandler handler = PropertyHandlerFactory.create(mimeType);
-					count = handler.delete(db, id, uri, selection, selectionArgs, isSyncAdapter);
+					count = handler.delete(db, selection, selectionArgs, isSyncAdapter);
+
+					count = count;
 				}
 
 				break;
@@ -687,8 +743,6 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				// TODO: validate properties
 				PropertyHandler handler = PropertyHandlerFactory.create(values.getAsString(Properties.MIMETYPE));
 				rowId = handler.insert(db, values, isSyncAdapter);
-
-				rowId = db.insert(Tables.PROPERTIES, "", values);
 				result_uri = TaskContract.Properties.CONTENT_URI;
 				break;
 
