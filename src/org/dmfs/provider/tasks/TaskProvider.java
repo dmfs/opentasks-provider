@@ -646,8 +646,6 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 					String mimeType = cursor.getString(0);
 					PropertyHandler handler = PropertyHandlerFactory.create(mimeType);
 					count = handler.delete(db, selection, selectionArgs, isSyncAdapter);
-
-					count = count;
 				}
 
 				break;
@@ -744,6 +742,11 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				PropertyHandler handler = PropertyHandlerFactory.create(values.getAsString(Properties.MIMETYPE));
 				rowId = handler.insert(db, values, isSyncAdapter);
 				result_uri = TaskContract.Properties.CONTENT_URI;
+				if (rowId > 0)
+				{
+					postNotifyUri(Tasks.CONTENT_URI);
+					postNotifyUri(Instances.CONTENT_URI);
+				}
 				break;
 
 			default:
@@ -821,6 +824,11 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				String newPropertySelection = updateSelection(selectId(uri), selection);
 				PropertyHandler handler = PropertyHandlerFactory.create(values.getAsString(Properties.MIMETYPE));
 				count = handler.update(db, values, newPropertySelection, selectionArgs, isSyncAdapter);
+				if (count > 0)
+				{
+					postNotifyUri(Tasks.CONTENT_URI);
+					postNotifyUri(Instances.CONTENT_URI);
+				}
 				break;
 
 			case CATEGORIES:
