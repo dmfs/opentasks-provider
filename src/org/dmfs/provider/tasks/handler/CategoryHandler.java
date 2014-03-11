@@ -13,7 +13,7 @@ import android.database.sqlite.SQLiteDatabase;
 
 
 /**
- * This is used to handle category property values
+ * This class is used to handle category property values during database transactions.
  * 
  * @author Tobias Reinsch <tobias@dmfs.org>
  * 
@@ -29,6 +29,23 @@ public class CategoryHandler extends PropertyHandler
 	public static final String IS_NEW_CATEGORY = "is_new_category";
 
 
+	/**
+	 * Validates the content of the category prior to insert and update transactions.
+	 * 
+	 * @param db
+	 *            The {@link SQLiteDatabase}.
+	 * @param isNew
+	 *            Indicates that the content is new and not an update.
+	 * @param values
+	 *            The {@link ContentValues} to validate.
+	 * @param isSyncAdapter
+	 *            Indicates that the transaction was triggered from a SyncAdapter.
+	 * 
+	 * @return The valid {@link ContentValues}.
+	 * 
+	 * @throws IllegalArgumentException
+	 *             if the {@link ContentValues} are invalid.
+	 */
 	@Override
 	public ContentValues validateValues(SQLiteDatabase db, boolean isNew, ContentValues values, boolean isSyncAdapter)
 	{
@@ -121,6 +138,18 @@ public class CategoryHandler extends PropertyHandler
 	}
 
 
+	/**
+	 * Inserts the property into the database.
+	 * 
+	 * @param db
+	 *            The {@link SQLiteDatabase}.
+	 * @param values
+	 *            The {@link ContentValues} to insert.
+	 * @param isSyncAdapter
+	 *            Indicates that the transaction was triggered from a SyncAdapter.
+	 * 
+	 * @return The row id of the new alarm as <code>long</code>
+	 */
 	@Override
 	public long insert(SQLiteDatabase db, ContentValues values, boolean isSyncAdapter)
 	{
@@ -134,7 +163,20 @@ public class CategoryHandler extends PropertyHandler
 
 
 	/**
-	 * updating category properties is currently not supported
+	 * Updates the category in the database.
+	 * 
+	 * @param db
+	 *            The {@link SQLiteDatabase}.
+	 * @param values
+	 *            The {@link ContentValues} to update.
+	 * @param selection
+	 *            The selection <code>String</code> to update the right row.
+	 * @param selectionArgs
+	 *            The arguments for the selection <code>String</code>.
+	 * @param isSyncAdapter
+	 *            Indicates that the transaction was triggered from a SyncAdapter.
+	 * 
+	 * @return The number of rows affected.
 	 */
 	@Override
 	public int update(SQLiteDatabase db, ContentValues values, String selection, String[] selectionArgs, boolean isSyncAdapter)
@@ -147,6 +189,15 @@ public class CategoryHandler extends PropertyHandler
 	}
 
 
+	/**
+	 * Check if a category with matching {@link ContentValues} exists and returns the existing category or creates a new category in the database.
+	 * 
+	 * @param db
+	 *            The {@link SQLiteDatabase}.
+	 * @param values
+	 *            The {@link ContentValues} of the category.
+	 * @return The {@link ContentValues} of the existing or new category.
+	 */
 	private ContentValues getOrInsertCategory(SQLiteDatabase db, ContentValues values)
 	{
 		if (values.getAsBoolean(IS_NEW_CATEGORY))
@@ -171,6 +222,17 @@ public class CategoryHandler extends PropertyHandler
 	}
 
 
+	/**
+	 * Inserts a relation entry in the database to link task and category.
+	 * 
+	 * @param db
+	 *            The {@link SQLiteDatabase}.
+	 * @param taskId
+	 *            The row id of the task.
+	 * @param categoryId
+	 *            The row id of the category.
+	 * @return The row id of the inserted relation.
+	 */
 	private long insertRelation(SQLiteDatabase db, String taskId, String categoryId)
 	{
 		ContentValues relationValues = new ContentValues();

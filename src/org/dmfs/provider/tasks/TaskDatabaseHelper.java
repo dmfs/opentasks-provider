@@ -63,6 +63,8 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 
 		public static final String TASKS_VIEW = "Task_View";
 
+		public static final String TASKS_PROPERTY_VIEW = "Task_Property_View";
+
 		public static final String INSTANCES = "Instances";
 
 		public static final String INSTANCE_VIEW = "Instance_View";
@@ -96,11 +98,26 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	}
 
 	// @formatter:off
-
+	
 	/**
 	 * SQL command to create a view that combines tasks with some data from the list they belong to.
 	 */
 	private final static String SQL_CREATE_TASK_VIEW = "create view " + Tables.TASKS_VIEW + " as select " +
+		Tables.TASKS + ".*, " +
+		Tables.LISTS + "." + Tasks.ACCOUNT_NAME + ", " +
+		Tables.LISTS + "." + Tasks.ACCOUNT_TYPE + ", " +
+		Tables.LISTS + "." + Tasks.LIST_OWNER + ", " +
+		Tables.LISTS + "." + Tasks.LIST_NAME + ", " +
+		Tables.LISTS + "." + Tasks.LIST_ACCESS_LEVEL + ", " +
+		Tables.LISTS + "." + Tasks.LIST_COLOR + ", " +
+		Tables.LISTS + "." + Tasks.VISIBLE +
+		" from " + Tables.TASKS + " join " + Tables.LISTS +
+		" on (" + Tables.TASKS + "." + Tasks.LIST_ID + "=" + Tables.LISTS + "." + TaskLists._ID + ");";
+
+	/**
+	 * SQL command to create a view that combines tasks with some data from the list they belong to.
+	 */
+	private final static String SQL_CREATE_TASK_PROPERTY_VIEW = "create view " + Tables.TASKS_PROPERTY_VIEW + " as select " +
 		Tables.TASKS + ".*, " +
 		Tables.PROPERTIES + ".*, "+ 
 		Tables.LISTS + "." + Tasks.ACCOUNT_NAME + ", " +
@@ -424,13 +441,6 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		// / create instancees table and view
 		db.execSQL(SQL_CREATE_INSTANCES_TABLE);
 
-		// create indices
-		db.execSQL(createIndexString(Tables.INSTANCES, TaskContract.Instances.TASK_ID, TaskContract.Instances.INSTANCE_START,
-			TaskContract.Instances.INSTANCE_DUE));
-		db.execSQL(createIndexString(Tables.LISTS, TaskContract.TaskLists.ACCOUNT_NAME, // not sure if necessary
-			TaskContract.TaskLists.ACCOUNT_TYPE));
-		db.execSQL(createIndexString(Tables.TASKS, TaskContract.Tasks.STATUS, TaskContract.Tasks.LIST_ID, TaskContract.Tasks._SYNC_ID));
-
 		// create categories table
 		db.execSQL(SQL_CREATE_CATEGORIES_TABLE);
 
@@ -445,8 +455,19 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 
 		// create views
 		db.execSQL(SQL_CREATE_TASK_VIEW);
+		db.execSQL(SQL_CREATE_TASK_PROPERTY_VIEW);
 		db.execSQL(SQL_CREATE_INSTANCE_VIEW);
 		db.execSQL(SQL_CREATE_INSTANCE_PROPERTY_VIEW);
+
+		// create indices
+		db.execSQL(createIndexString(Tables.INSTANCES, TaskContract.Instances.TASK_ID, TaskContract.Instances.INSTANCE_START,
+			TaskContract.Instances.INSTANCE_DUE));
+		db.execSQL(createIndexString(Tables.LISTS, TaskContract.TaskLists.ACCOUNT_NAME, // not sure if necessary
+			TaskContract.TaskLists.ACCOUNT_TYPE));
+		db.execSQL(createIndexString(Tables.TASKS, TaskContract.Tasks.STATUS, TaskContract.Tasks.LIST_ID, TaskContract.Tasks._SYNC_ID));
+		db.execSQL(createIndexString(Tables.PROPERTIES, TaskContract.Properties.MIMETYPE, TaskContract.Properties.TASK_ID));
+		db.execSQL(createIndexString(Tables.CATEGORIES, TaskContract.Categories.ACCOUNT_NAME, TaskContract.Categories.ACCOUNT_TYPE,
+			TaskContract.Categories.NAME));
 
 		// trigger that removes properties of a task that has been removed
 		db.execSQL(SQL_CREATE_TASKS_CLEANUP_TRIGGER);
@@ -514,8 +535,14 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 
 			// update views
 			db.execSQL(SQL_CREATE_TASK_VIEW);
+			db.execSQL(SQL_CREATE_TASK_PROPERTY_VIEW);
 			db.execSQL(SQL_CREATE_INSTANCE_VIEW);
 			db.execSQL(SQL_CREATE_INSTANCE_PROPERTY_VIEW);
+
+			// create Indices
+			db.execSQL(createIndexString(Tables.PROPERTIES, TaskContract.Properties.MIMETYPE, TaskContract.Properties.TASK_ID));
+			db.execSQL(createIndexString(Tables.CATEGORIES, TaskContract.Categories.ACCOUNT_NAME, TaskContract.Categories.ACCOUNT_TYPE,
+				TaskContract.Categories.NAME));
 
 			// add new triggers
 			db.execSQL(SQL_CREATE_ALARM_PROPERTY_CLEANUP_TRIGGER, new Object[] { Property.Alarm.CONTENT_ITEM_TYPE });

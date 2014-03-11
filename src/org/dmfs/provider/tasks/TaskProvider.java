@@ -443,11 +443,11 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				if (shouldLoadProperties(uri))
 				{
 					// extended properties were requested, therefore change to task view that includes these properties
-					sqlBuilder.setTables(Tables.TASKS_VIEW);
+					sqlBuilder.setTables(Tables.TASKS_PROPERTY_VIEW);
 				}
 				else
 				{
-					sqlBuilder.setTables(Tables.TASKS);
+					sqlBuilder.setTables(Tables.TASKS_VIEW);
 				}
 				if (!isSyncAdapter)
 				{
@@ -464,11 +464,11 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				if (shouldLoadProperties(uri))
 				{
 					// extended properties were requested, therefore change to task view that includes these properties
-					sqlBuilder.setTables(Tables.TASKS_VIEW);
+					sqlBuilder.setTables(Tables.TASKS_PROPERTY_VIEW);
 				}
 				else
 				{
-					sqlBuilder.setTables(Tables.TASKS);
+					sqlBuilder.setTables(Tables.TASKS_VIEW);
 				}
 				selectId(sqlBuilder, TaskColumns._ID, uri);
 				if (!isSyncAdapter)
@@ -640,12 +640,19 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 
 				Cursor cursor = db.query(Tables.PROPERTIES, queryProjection, selection, selectionArgs, null, null, null);
 
-				if (cursor != null && cursor.getCount() == 1)
+				try
 				{
-					cursor.moveToFirst();
-					String mimeType = cursor.getString(0);
-					PropertyHandler handler = PropertyHandlerFactory.create(mimeType);
-					count = handler.delete(db, selection, selectionArgs, isSyncAdapter);
+					if (cursor != null && cursor.getCount() == 1)
+					{
+						cursor.moveToFirst();
+						String mimeType = cursor.getString(0);
+						PropertyHandler handler = PropertyHandlerFactory.create(mimeType);
+						count = handler.delete(db, selection, selectionArgs, isSyncAdapter);
+					}
+				}
+				finally
+				{
+					cursor.close();
 				}
 
 				break;
