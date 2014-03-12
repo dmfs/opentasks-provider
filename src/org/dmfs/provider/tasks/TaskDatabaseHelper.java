@@ -82,7 +82,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	}
 
 	/**
-	 * Columns of internal table for the category mapping
+	 * Columns of internal table for the category mapping.
 	 */
 	public interface CategoriesMapping
 	{
@@ -133,7 +133,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 
 
 	/**
-	 * SQL command to drop the task view
+	 * SQL command to drop the task view.
 	 */
 	private final static String SQL_DROP_TASK_VIEW = "DROP VIEW " + Tables.TASKS_VIEW + ";";
 
@@ -187,7 +187,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	/**
 	 * SQL command to drop the instance property view.
 	 */
-	private final static String SQL_DROP_INSTANCE_PROPERTY_VIEW = "DROP VIEW " + Tables.INSTANCE_PROPERTY_VIEW + ";";
+	//private final static String SQL_DROP_INSTANCE_PROPERTY_VIEW = "DROP VIEW " + Tables.INSTANCE_PROPERTY_VIEW + ";";
 	
 	/**
 	 * SQL command to create the instances table.
@@ -214,7 +214,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		+ " END;";
 	
 	/**
-	 * SQL command to drop the clean up trigger
+	 * SQL command to drop the clean up trigger.
 	 */
 	private final static String SQL_DROP_TASKS_CLEANUP_TRIGGER =
 		"DROP TRIGGER task_cleanup_trigger;";
@@ -329,7 +329,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	
 	
 	/**
-	 * SQL command to create the alarms table the stores the already triggered alarms
+	 * SQL command to create the alarms table the stores the already triggered alarms.
 	 */
 	private final static String SQL_CREATE_ALARMS_TABLE =
 		"CREATE TABLE " + Tables.ALARMS
@@ -374,7 +374,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	
 	
 	/**
-	 * SQL command to drop the task view
+	 * SQL command to drop the task view.
 	 */
 	private final static String SQL_DROP_PROPERTIES_TABLE = "DROP TABLE " + Tables.PROPERTIES + ";";
 	
@@ -411,7 +411,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 
 
 	/**
-	 * Create tables.
+	 * Creates the tables, views, triggers and indices.
 	 * 
 	 * TODO: move all strings to separate final static variables.
 	 */
@@ -438,7 +438,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			+ TaskContract.TaskLists._DIRTY + "=" + TaskContract.TaskLists._DIRTY + " + " + "new." + TaskContract.Tasks._DIRTY + " + " + "new."
 			+ TaskContract.Tasks._DELETED + " WHERE " + TaskContract.TaskLists._ID + "= new." + TaskContract.Tasks.LIST_ID + "; END");
 
-		// / create instancees table and view
+		// create instances table and view
 		db.execSQL(SQL_CREATE_INSTANCES_TABLE);
 
 		// create categories table
@@ -482,6 +482,10 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	}
 
 
+	/**
+	 * Manages the database schema migration.
+	 * 
+	 */
 	@Override
 	public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion)
 	{

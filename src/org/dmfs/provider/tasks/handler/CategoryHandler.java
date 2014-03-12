@@ -139,7 +139,7 @@ public class CategoryHandler extends PropertyHandler
 
 
 	/**
-	 * Inserts the property into the database.
+	 * Inserts the category into the database.
 	 * 
 	 * @param db
 	 *            The {@link SQLiteDatabase}.
@@ -148,7 +148,7 @@ public class CategoryHandler extends PropertyHandler
 	 * @param isSyncAdapter
 	 *            Indicates that the transaction was triggered from a SyncAdapter.
 	 * 
-	 * @return The row id of the new alarm as <code>long</code>
+	 * @return The row id of the new category as <code>long</code>
 	 */
 	@Override
 	public long insert(SQLiteDatabase db, ContentValues values, boolean isSyncAdapter)

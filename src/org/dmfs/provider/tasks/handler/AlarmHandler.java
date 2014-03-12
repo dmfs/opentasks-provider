@@ -1,6 +1,5 @@
 package org.dmfs.provider.tasks.handler;
 
-import org.dmfs.provider.tasks.TaskContract.Alarms;
 import org.dmfs.provider.tasks.TaskContract.Property;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
 
@@ -17,10 +16,8 @@ import android.database.sqlite.SQLiteDatabase;
 public class AlarmHandler extends PropertyHandler
 {
 
-	private static final String[] ALARM_ID_PROJECTION = { Alarms.ALARM_ID };
-
-	private static final String ALARM_SELECTION = Alarms.ALARM_ID + " =?";
-
+	// private static final String[] ALARM_ID_PROJECTION = { Alarms.ALARM_ID };
+	// private static final String ALARM_SELECTION = Alarms.ALARM_ID + " =?";
 
 	/**
 	 * Validates the content of the alarm prior to insert and update transactions.
