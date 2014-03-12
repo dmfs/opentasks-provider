@@ -525,12 +525,6 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			db.execSQL(SQL_CREATE_PROPERTIES_TABLE);
 			db.execSQL(SQL_CREATE_TASKS_CLEANUP_TRIGGER);
 
-			// add column sync5 - sync8 to property table
-			db.execSQL("ALTER TABLE " + Tables.PROPERTIES + " ADD COLUMN " + TaskContract.PropertySyncColumns.SYNC5 + " TEXT");
-			db.execSQL("ALTER TABLE " + Tables.PROPERTIES + " ADD COLUMN " + TaskContract.PropertySyncColumns.SYNC6 + " TEXT");
-			db.execSQL("ALTER TABLE " + Tables.PROPERTIES + " ADD COLUMN " + TaskContract.PropertySyncColumns.SYNC7 + " TEXT");
-			db.execSQL("ALTER TABLE " + Tables.PROPERTIES + " ADD COLUMN " + TaskContract.PropertySyncColumns.SYNC8 + " TEXT");
-
 			// create categories mapping table
 			db.execSQL(SQL_CREATE_CATEGORIES_MAPPING_TABLE);
 
