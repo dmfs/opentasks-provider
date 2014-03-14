@@ -11,6 +11,18 @@
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/AppTheme" >
+         <receiver android:name="org.dmfs.provider.tasks.handler.AlarmNotificationHandler"/> 
+         <receiver android:name="org.dmfs.provider.tasks.handler.AlarmNotificationHandler" >
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
+    
+    
+    
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM"/>
+    
+   
 
 </manifest>

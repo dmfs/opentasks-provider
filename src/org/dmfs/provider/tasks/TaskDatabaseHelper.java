@@ -50,7 +50,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	/**
 	 * List of all tables we provide.
 	 */
-	interface Tables
+	public interface Tables
 	{
 		public static final String LISTS = "Lists";
 

@@ -36,6 +36,7 @@ import org.dmfs.provider.tasks.TaskContract.TaskLists;
 import org.dmfs.provider.tasks.TaskContract.TaskSyncColumns;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
+import org.dmfs.provider.tasks.handler.AlarmNotificationHandler;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
@@ -621,6 +622,10 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				createInstances(db, uri, values, rowId);
 
 				result_uri = TaskContract.Tasks.CONTENT_URI;
+
+				// update alarms
+				AlarmNotificationHandler alarmHandler = new AlarmNotificationHandler(getContext());
+				alarmHandler.setUpcomingDueAlarm(mDb);
 				break;
 
 			case CATEGORIES:
