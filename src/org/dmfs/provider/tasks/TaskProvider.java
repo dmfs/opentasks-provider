@@ -546,6 +546,11 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 					values.put(TaskSyncColumns._DELETED, true);
 					values.put(CommonSyncColumns._DIRTY, true);
 					count = db.update(Tables.TASKS, values, selection, selectionArgs);
+
+					// update alarms
+					AlarmNotificationHandler alarmHandler = new AlarmNotificationHandler(getContext());
+					alarmHandler.setUpcomingDueAlarm(mDb, System.currentTimeMillis());
+
 				}
 				break;
 			case CATEGORIES:
@@ -625,7 +630,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 
 				// update alarms
 				AlarmNotificationHandler alarmHandler = new AlarmNotificationHandler(getContext());
-				alarmHandler.setUpcomingDueAlarm(mDb);
+				alarmHandler.setUpcomingDueAlarm(mDb, System.currentTimeMillis());
 				break;
 
 			case CATEGORIES:
@@ -685,6 +690,10 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				// update related instances
 				updateInstancesOfAllTasks(db, values, selection, selectionArgs);
 
+				// update alarms
+				AlarmNotificationHandler alarmHandler = new AlarmNotificationHandler(getContext());
+				alarmHandler.setUpcomingDueAlarm(mDb, System.currentTimeMillis());
+
 				break;
 			case TASK_ID:
 				String newSelection = updateSelection(selectId(uri), selection);
@@ -700,6 +709,10 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				count = db.update(Tables.TASKS, values, newSelection, selectionArgs);
 				String taskSelection = updateSelection(selectTaskId(uri), selection).toString();
 				updateInstancesOfOneTask(db, getId(uri), values, taskSelection, selectionArgs);
+
+				// update alarms
+				AlarmNotificationHandler taskAlarmHandler = new AlarmNotificationHandler(getContext());
+				taskAlarmHandler.setUpcomingDueAlarm(mDb, System.currentTimeMillis());
 				break;
 			case CATEGORIES:
 				break;
