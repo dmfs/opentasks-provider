@@ -6,7 +6,6 @@ import org.dmfs.provider.tasks.TaskContract.Instances;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
 import org.dmfs.provider.tasks.TaskProvider;
-import org.dmfs.provider.tasks.Utils;
 
 import android.annotation.TargetApi;
 import android.app.AlarmManager;
@@ -98,44 +97,6 @@ public class AlarmNotificationHandler extends BroadcastReceiver
 
 
 	/**
-	 * Checks if alarms are enabled, then queries the database for the next upcoming due task instance and sets the alarm for it.
-	 */
-	public void checkSetUpcomingDueAlarmNow()
-	{
-		Context context = mContext.get();
-		if (context != null && Utils.getAlarmPreference(context))
-		{
-			if (mAlarmManager == null)
-			{
-				mAlarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-			}
-
-			// get database access
-			SQLiteOpenHelper dBHelper = new TaskProvider().getDatabaseHelper(context);
-			mDb = dBHelper.getReadableDatabase();
-			this.setUpcomingDueAlarm(mDb, System.currentTimeMillis());
-			mDb.close();
-		}
-	}
-
-
-	/**
-	 * Checks if alarms are enabled, then queries the database for the next upcoming due task instance and sets the alarm for it.
-	 * 
-	 * @param db
-	 *            The {@link SQLiteDatabase}.
-	 * 
-	 */
-	public void checkSetUpcomingDueAlarmNow(SQLiteDatabase db)
-	{
-		if (mContext.get() != null && Utils.getAlarmPreference(mContext.get()))
-		{
-			this.setUpcomingDueAlarm(db, System.currentTimeMillis());
-		}
-	}
-
-
-	/**
 	 * Query the database for the next upcoming due task instance and sets the alarm for it.
 	 * 
 	 * @param db
@@ -174,66 +135,62 @@ public class AlarmNotificationHandler extends BroadcastReceiver
 	@Override
 	public void onReceive(Context context, Intent intent)
 	{
-		// only send broadcasts if alarms are enabled
-		if (Utils.getAlarmPreference(context))
+
+		mContext = new SoftReference<Context>(context);
+		mAlarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+		if (intent.hasExtra(EXTRA_TASK_ID))
 		{
+
+			SQLiteDatabase db;
+			if (mDb == null)
+			{
+				SQLiteOpenHelper dBHelper = new TaskProvider().getDatabaseHelper(context);
+				db = dBHelper.getReadableDatabase();
+				mDb = db;
+			}
+
+			// check for all tasks which are due since the due alarm was set plus 1 second
+			long currentDueTime = intent.getExtras().getLong(EXTRA_TASK_DUE_TIME);
+			long nextDueTime = currentDueTime + 1000;
+			String[] projection = new String[] { Instances.TASK_ID, Instances.INSTANCE_DUE, Tasks.TITLE };
+			String selection = nextDueTime + " > " + Instances.INSTANCE_DUE + " AND " + currentDueTime + " <= " + Instances.INSTANCE_DUE;
+			Cursor cursor = mDb.query(Tables.INSTANCE_VIEW, projection, selection, null, null, null, Instances.INSTANCE_DUE);
+
+			if (cursor != null)
+			{
+				try
+				{
+					if (cursor.moveToFirst())
+					{
+						while (!cursor.isAfterLast())
+						{
+							// inform the application
+							sendTaskDueAlarmBroadcast(cursor.getLong(0), cursor.getLong(1), cursor.getString(2));
+							cursor.moveToNext();
+						}
+
+					}
+				}
+				finally
+				{
+					cursor.close();
+				}
+			}
+			// Set the next alarm
+			setUpcomingDueAlarm(mDb, nextDueTime);
+			mDb.close();
+		}
+		else if (intent.getAction().equals("android.intent.action.BOOT_COMPLETED"))
+		{
+			// device booted -> set upcoming alarm
 			mContext = new SoftReference<Context>(context);
 			mAlarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-			if (intent.hasExtra(EXTRA_TASK_ID))
-			{
+			SQLiteOpenHelper dBHelper = new TaskProvider().getDatabaseHelper(context);
+			SQLiteDatabase db = dBHelper.getReadableDatabase();
+			setUpcomingDueAlarm(db, System.currentTimeMillis());
+			db.close();
 
-				SQLiteDatabase db;
-				if (mDb == null)
-				{
-					SQLiteOpenHelper dBHelper = new TaskProvider().getDatabaseHelper(context);
-					db = dBHelper.getReadableDatabase();
-					mDb = db;
-				}
-
-				// check for all tasks which are due since the due alarm was set plus 1 second
-				long currentDueTime = intent.getExtras().getLong(EXTRA_TASK_DUE_TIME);
-				long nextDueTime = currentDueTime + 1000;
-				String[] projection = new String[] { Instances.TASK_ID, Instances.INSTANCE_DUE, Tasks.TITLE };
-				String selection = nextDueTime + " > " + Instances.INSTANCE_DUE + " AND " + currentDueTime + " <= " + Instances.INSTANCE_DUE;
-				Cursor cursor = mDb.query(Tables.INSTANCE_VIEW, projection, selection, null, null, null, Instances.INSTANCE_DUE);
-
-				if (cursor != null)
-				{
-					try
-					{
-						if (cursor.moveToFirst())
-						{
-							while (!cursor.isAfterLast())
-							{
-								// inform the application
-								sendTaskDueAlarmBroadcast(cursor.getLong(0), cursor.getLong(1), cursor.getString(2));
-								cursor.moveToNext();
-							}
-
-						}
-					}
-					finally
-					{
-						cursor.close();
-					}
-				}
-				// Set the next alarm
-				setUpcomingDueAlarm(mDb, nextDueTime);
-				mDb.close();
-			}
-			else if (intent.getAction().equals("android.intent.action.BOOT_COMPLETED"))
-			{
-				// device booted -> set upcoming alarm
-				mContext = new SoftReference<Context>(context);
-				mAlarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-				SQLiteOpenHelper dBHelper = new TaskProvider().getDatabaseHelper(context);
-				SQLiteDatabase db = dBHelper.getReadableDatabase();
-				setUpcomingDueAlarm(db, System.currentTimeMillis());
-				db.close();
-
-			}
 		}
-
 	}
 
 

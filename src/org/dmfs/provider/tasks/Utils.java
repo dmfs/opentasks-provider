@@ -19,8 +19,6 @@ package org.dmfs.provider.tasks;
 
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
-import android.content.SharedPreferences.Editor;
 
 
 /**
@@ -31,44 +29,10 @@ import android.content.SharedPreferences.Editor;
  */
 public class Utils
 {
-	private static String PREFERENCE_ALARM = "preference_alarm";
-	private static String PREFS_NAME = "provider_preferences";
-
-
 	public static void sendActionProviderChangedBroadCast(Context context)
 	{
 		Intent providerChangedIntent = new Intent(Intent.ACTION_PROVIDER_CHANGED, TaskContract.CONTENT_URI);
 		context.sendBroadcast(providerChangedIntent);
 	}
 
-
-	/**
-	 * Sets the alarm notification preference.
-	 * 
-	 * @param context
-	 *            A {@link Context}.
-	 * @param activated
-	 *            The preference value.
-	 */
-	public static void setAlarmPreference(Context context, Boolean activated)
-	{
-		SharedPreferences settings = context.getSharedPreferences(PREFS_NAME, 0);
-		Editor editor = settings.edit();
-		editor.putBoolean(PREFERENCE_ALARM, activated);
-		editor.commit();
-	}
-
-
-	/**
-	 * Return the alarm notification preference.
-	 * 
-	 * @param context
-	 *            A {@link Context}.
-	 * @return The previously set preference or <code>true</code>.
-	 */
-	public static boolean getAlarmPreference(Context context)
-	{
-		SharedPreferences settings = context.getSharedPreferences(PREFS_NAME, 0);
-		return settings.getBoolean(PREFERENCE_ALARM, true);
-	}
 }

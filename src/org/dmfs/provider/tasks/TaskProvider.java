@@ -548,7 +548,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 					count = db.update(Tables.TASKS, values, selection, selectionArgs);
 
 					// update alarms
-					new AlarmNotificationHandler(getContext()).checkSetUpcomingDueAlarmNow(mDb);
+					new AlarmNotificationHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
 
 				}
 				break;
@@ -628,7 +628,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				result_uri = TaskContract.Tasks.CONTENT_URI;
 
 				// update alarms
-				new AlarmNotificationHandler(getContext()).checkSetUpcomingDueAlarmNow(mDb);
+				new AlarmNotificationHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
 
 				break;
 
@@ -690,7 +690,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				updateInstancesOfAllTasks(db, values, selection, selectionArgs);
 
 				// update alarms
-				new AlarmNotificationHandler(getContext()).checkSetUpcomingDueAlarmNow(mDb);
+				new AlarmNotificationHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
 
 				break;
 			case TASK_ID:
@@ -709,7 +709,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				updateInstancesOfOneTask(db, getId(uri), values, taskSelection, selectionArgs);
 
 				// update alarms
-				new AlarmNotificationHandler(getContext()).checkSetUpcomingDueAlarmNow(mDb);
+				new AlarmNotificationHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
 
 				break;
 			case CATEGORIES:
