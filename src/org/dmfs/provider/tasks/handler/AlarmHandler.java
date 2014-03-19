@@ -1,7 +1,6 @@
 package org.dmfs.provider.tasks.handler;
 
 import org.dmfs.provider.tasks.TaskContract.Property;
-import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
 
 import android.content.ContentValues;
 import android.database.sqlite.SQLiteDatabase;
@@ -45,14 +44,14 @@ public class AlarmHandler extends PropertyHandler
 			throw new IllegalArgumentException("_ID can not be set manually");
 		}
 
-		if (!values.containsKey(Property.Alarm.MINUTES_BEFORE) || values.getAsInteger(Property.Alarm.MINUTES_BEFORE) < 0)
+		if (!values.containsKey(Property.Alarm.MINUTES_BEFORE))
 		{
-			throw new IllegalArgumentException("alarm property requires a time offset > 0");
+			throw new IllegalArgumentException("alarm property requires a time offset");
 		}
 
 		if (!values.containsKey(Property.Alarm.REFERENCE) || values.getAsInteger(Property.Alarm.REFERENCE) < 0)
 		{
-			throw new IllegalArgumentException("alarm property requires a reference date ");
+			throw new IllegalArgumentException("alarm property requires a valid reference date ");
 		}
 
 		if (!values.containsKey(Property.Alarm.ALARM_TYPE))
@@ -80,9 +79,7 @@ public class AlarmHandler extends PropertyHandler
 	public long insert(SQLiteDatabase db, ContentValues values, boolean isSyncAdapter)
 	{
 		values = validateValues(db, true, values, isSyncAdapter);
-
-		// insert property row
-		return db.insert(Tables.PROPERTIES, "", values);
+		return super.insert(db, values, isSyncAdapter);
 	}
 
 
@@ -105,11 +102,7 @@ public class AlarmHandler extends PropertyHandler
 	@Override
 	public int update(SQLiteDatabase db, ContentValues values, String selection, String[] selectionArgs, boolean isSyncAdapter)
 	{
-		super.update(db, values, selection, selectionArgs, isSyncAdapter);
-		values = validateValues(db, true, values, isSyncAdapter);
-
-		// TODO: update alarms
-
-		return db.update(Tables.PROPERTIES, values, selection, selectionArgs);
+		values = validateValues(db, false, values, isSyncAdapter);
+		return super.update(db, values, selection, selectionArgs, isSyncAdapter);
 	}
 }

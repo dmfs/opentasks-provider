@@ -158,7 +158,7 @@ public class CategoryHandler extends PropertyHandler
 		insertRelation(db, values.getAsString(Category.TASK_ID), values.getAsString(Category.CATEGORY_ID));
 
 		// insert property row and create relation
-		return db.insert(Tables.PROPERTIES, "", values);
+		return super.insert(db, values, isSyncAdapter);
 	}
 
 
@@ -185,7 +185,7 @@ public class CategoryHandler extends PropertyHandler
 		values = validateValues(db, true, values, isSyncAdapter);
 		values = getOrInsertCategory(db, values);
 
-		return db.update(Tables.PROPERTIES, values, selection, selectionArgs);
+		return super.update(db, values, selection, selectionArgs, isSyncAdapter);
 	}
 
 

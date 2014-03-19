@@ -658,6 +658,22 @@ public final class TaskContract
 		 * </p>
 		 */
 		public static final String ORIGINAL_INSTANCE_ALLDAY = "original_instance_allday";
+
+		/**
+		 * The row id of the parent task. <code>null</code> if the task has no parent task.
+		 * <p>
+		 * Value: Long
+		 * </p>
+		 */
+		public static final String PARENT_ID = "parent_id";
+
+		/**
+		 * The sorting of this task under it's parent task.
+		 * <p>
+		 * Value: String
+		 * </p>
+		 */
+		public static final String SORTING = "sorting";
 	}
 
 	/**
@@ -985,20 +1001,6 @@ public final class TaskContract
 
 		public static final Uri CONTENT_URI = Uri.parse("content://" + AUTHORITY + "/" + CONTENT_URI_PATH);
 
-		public static final int ALARM_TYPE_NOTHING = 0;
-
-		public static final int ALARM_TYPE_MESSAGE = 1;
-
-		public static final int ALARM_TYPE_EMAIL = 2;
-
-		public static final int ALARM_TYPE_SMS = 3;
-
-		public static final int ALARM_TYPE_SOUND = 4;
-
-		public static final int ALARM_REFERENCE_DUE_DATE = 1;
-
-		public static final int ALARM_REFERENCE_START_DATE = 2;
-
 	}
 
 	public interface PropertySyncColumns
@@ -1228,13 +1230,28 @@ public final class TaskContract
 
 		public static interface Alarm extends PropertyColumns
 		{
+
+			public static final int ALARM_TYPE_NOTHING = 0;
+
+			public static final int ALARM_TYPE_MESSAGE = 1;
+
+			public static final int ALARM_TYPE_EMAIL = 2;
+
+			public static final int ALARM_TYPE_SMS = 3;
+
+			public static final int ALARM_TYPE_SOUND = 4;
+
+			public static final int ALARM_REFERENCE_DUE_DATE = 1;
+
+			public static final int ALARM_REFERENCE_START_DATE = 2;
+
 			/**
 			 * The mime-type of this property.
 			 */
 			public final static String CONTENT_ITEM_TYPE = ContentResolver.CURSOR_ITEM_BASE_TYPE + "/alarm";
 
 			/**
-			 * Number of minutes from the reference date when the alarm goes off
+			 * Number of minutes from the reference date when the alarm goes off. If the value is < 0 the alarm will go off after the reference date.
 			 * <p>
 			 * Value: Integer
 			 * </p>
@@ -1242,7 +1259,7 @@ public final class TaskContract
 			public final static String MINUTES_BEFORE = DATA0;
 
 			/**
-			 * The reference date for the alarm (either start date or due date of the task)
+			 * The reference date for the alarm. Either {@link ALARM_REFERENCE_DUE_DATE} or {@link ALARM_REFERENCE_START_DATE}.
 			 * <p>
 			 * Value: Integer
 			 * </p>
@@ -1250,7 +1267,7 @@ public final class TaskContract
 			public final static String REFERENCE = DATA1;
 
 			/**
-			 * A message that appears with the alarm
+			 * A message that appears with the alarm.
 			 * <p>
 			 * Value: String
 			 * </p>
@@ -1258,7 +1275,8 @@ public final class TaskContract
 			public final static String MESSAGE = DATA2;
 
 			/**
-			 * The type of the alarm
+			 * The type of the alarm. Use the provided alarm types {@link ALARM_TYPE_MESSAGE}, {@link ALARM_TYPE_SOUND}, {@link ALARM_TYPE_NOTHING},
+			 * {@link ALARM_TYPE_EMAIL} and {@link ALARM_TYPE_SMS}.
 			 * <p>
 			 * Value: Integer
 			 * </p>

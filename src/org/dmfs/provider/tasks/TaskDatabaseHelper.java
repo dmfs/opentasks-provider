@@ -18,7 +18,7 @@
 package org.dmfs.provider.tasks;
 
 import org.dmfs.provider.tasks.TaskContract.Properties;
-import org.dmfs.provider.tasks.TaskContract.Property;
+import org.dmfs.provider.tasks.TaskContract.Property.Alarm;
 import org.dmfs.provider.tasks.TaskContract.TaskLists;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 
@@ -70,6 +70,8 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		public static final String INSTANCE_VIEW = "Instance_View";
 
 		public static final String INSTANCE_PROPERTY_VIEW = "Instance_Property_View";
+
+		public static final String INSTANCE_CATEGORY_VIEW = "Instance_Cagetory_View";
 
 		public static final String CATEGORIES = "Categories";
 
@@ -138,6 +140,23 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	private final static String SQL_DROP_TASK_VIEW = "DROP VIEW " + Tables.TASKS_VIEW + ";";
 
 	
+	/**
+	 * SQL command to create a view that combines task instances with some data from the list they belong to.
+	 */
+	private final static String SQL_CREATE_INSTANCE_VIEW = "CREATE VIEW " + Tables.INSTANCE_VIEW + " AS SELECT "
+		+ Tables.INSTANCES + ".*, "
+		+ Tables.TASKS + ".*, "
+		+ Tables.LISTS + "." + Tasks.ACCOUNT_NAME + ", "
+		+ Tables.LISTS + "." + Tasks.ACCOUNT_TYPE + ", "
+		+ Tables.LISTS + "." + Tasks.LIST_OWNER + ", "
+		+ Tables.LISTS + "." + Tasks.LIST_NAME + ", "
+		+ Tables.LISTS + "." + Tasks.LIST_ACCESS_LEVEL + ", "
+		+ Tables.LISTS + "." + Tasks.LIST_COLOR + ", "
+		+ Tables.LISTS + "." + Tasks.VISIBLE
+		+ " FROM " + Tables.TASKS
+		+ " JOIN " + Tables.LISTS + " ON (" + Tables.TASKS + "."+ TaskContract.Tasks.LIST_ID + "=" + Tables.LISTS + "."+TaskContract.Tasks._ID + ")"
+		+ " JOIN " + Tables.INSTANCES + " ON (" + Tables.TASKS + "." + TaskContract.Tasks._ID + "=" + Tables.INSTANCES + "."+TaskContract.Instances.TASK_ID+ ");";
+	
 	
 	/**
 	 * SQL command to create a view that combines task instances view with the belonging properties.
@@ -159,12 +178,12 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		+ " LEFT JOIN "+ Tables.PROPERTIES + " ON (" + Tables.TASKS + "." + Tasks._ID + "=" + Tables.PROPERTIES + "." + Properties.TASK_ID +");";
 	
 	
-	
 	/**
 	 * SQL command to create a view that combines task instances with some data from the list they belong to.
 	 */
-	private final static String SQL_CREATE_INSTANCE_VIEW = "CREATE VIEW " + Tables.INSTANCE_VIEW + " AS SELECT "
+	private final static String SQL_CREATE_INSTANCE_CATEGORY_VIEW = "CREATE VIEW " + Tables.INSTANCE_CATEGORY_VIEW + " AS SELECT "
 		+ Tables.INSTANCES + ".*, "
+		+ Tables.CATEGORIES_MAPPING + "." + CategoriesMapping.CATEGORY_ID + ", "
 		+ Tables.TASKS + ".*, "
 		+ Tables.LISTS + "." + Tasks.ACCOUNT_NAME + ", "
 		+ Tables.LISTS + "." + Tasks.ACCOUNT_TYPE + ", "
@@ -175,7 +194,8 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		+ Tables.LISTS + "." + Tasks.VISIBLE
 		+ " FROM " + Tables.TASKS
 		+ " JOIN " + Tables.LISTS + " ON (" + Tables.TASKS + "."+ TaskContract.Tasks.LIST_ID + "=" + Tables.LISTS + "."+TaskContract.Tasks._ID + ")"
-		+ " JOIN " + Tables.INSTANCES + " ON (" + Tables.TASKS + "." + TaskContract.Tasks._ID + "=" + Tables.INSTANCES + "."+TaskContract.Instances.TASK_ID+ ");";
+		+ " JOIN " + Tables.INSTANCES + " ON (" + Tables.TASKS + "." + TaskContract.Tasks._ID + "=" + Tables.INSTANCES + "."+TaskContract.Instances.TASK_ID+ ")"
+		+ " LEFT JOIN " + Tables.CATEGORIES_MAPPING + " ON (" + Tables.CATEGORIES_MAPPING + "." + CategoriesMapping.TASK_ID + "=" + Tables.INSTANCES + "."+TaskContract.Instances.TASK_ID+ ");";
 	
 	
 	/**
@@ -223,9 +243,9 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	 * SQL command to create a trigger to clean up data of removed property.
 	 */
 	private final static String SQL_CREATE_ALARM_PROPERTY_CLEANUP_TRIGGER =
-		"CREATE TRIGGER alarm_property_cleanup_trigger AFTER DELETE ON " + Tables.PROPERTIES + " WHEN OLD." + Properties.MIMETYPE + " = ?" 
+		"CREATE TRIGGER alarm_property_cleanup_trigger AFTER DELETE ON " + Tables.PROPERTIES + " WHEN OLD." + Properties.MIMETYPE + " = '" + Alarm.CONTENT_ITEM_TYPE + "'"  
 		+ " BEGIN "
-		+ " DELETE FROM " + Tables.ALARMS + " WHERE " + TaskContract.Alarms.ALARM_ID + "= old." + TaskContract.Properties.PROPERTY_ID + ";"
+		+ " DELETE FROM " + Tables.ALARMS + " WHERE " + TaskContract.Alarms.ALARM_ID + "= OLD." + TaskContract.Properties.PROPERTY_ID + ";"
 		+ " END;";
 
 	
@@ -288,6 +308,8 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			+ TaskContract.Tasks.RDATE + " TEXT,"
 			+ TaskContract.Tasks.EXDATE + " TEXT,"
 			+ TaskContract.Tasks.RRULE + " TEXT,"
+			+ TaskContract.Tasks.PARENT_ID + " INTEGER,"
+			+ TaskContract.Tasks.SORTING + " TEXT,"
 			+ TaskContract.Tasks.ORIGINAL_INSTANCE_SYNC_ID + " TEXT,"
 			+ TaskContract.Tasks.ORIGINAL_INSTANCE_ID + " INTEGER,"
 			+ TaskContract.Tasks.ORIGINAL_INSTANCE_TIME + " INTEGER,"
@@ -458,6 +480,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		db.execSQL(SQL_CREATE_TASK_PROPERTY_VIEW);
 		db.execSQL(SQL_CREATE_INSTANCE_VIEW);
 		db.execSQL(SQL_CREATE_INSTANCE_PROPERTY_VIEW);
+		db.execSQL(SQL_CREATE_INSTANCE_CATEGORY_VIEW);
 
 		// create indices
 		db.execSQL(createIndexString(Tables.INSTANCES, TaskContract.Instances.TASK_ID, TaskContract.Instances.INSTANCE_START,
@@ -466,14 +489,16 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			TaskContract.TaskLists.ACCOUNT_TYPE));
 		db.execSQL(createIndexString(Tables.TASKS, TaskContract.Tasks.STATUS, TaskContract.Tasks.LIST_ID, TaskContract.Tasks._SYNC_ID));
 		db.execSQL(createIndexString(Tables.PROPERTIES, TaskContract.Properties.MIMETYPE, TaskContract.Properties.TASK_ID));
+		db.execSQL(createIndexString(Tables.PROPERTIES, TaskContract.Properties.TASK_ID));
 		db.execSQL(createIndexString(Tables.CATEGORIES, TaskContract.Categories.ACCOUNT_NAME, TaskContract.Categories.ACCOUNT_TYPE,
 			TaskContract.Categories.NAME));
+		db.execSQL(createIndexString(Tables.CATEGORIES, TaskContract.Categories.NAME));
 
 		// trigger that removes properties of a task that has been removed
 		db.execSQL(SQL_CREATE_TASKS_CLEANUP_TRIGGER);
 
 		// trigger that removes alarms when an alarm property was deleted
-		db.execSQL(SQL_CREATE_ALARM_PROPERTY_CLEANUP_TRIGGER, new Object[] { Property.Alarm.CONTENT_ITEM_TYPE });
+		db.execSQL(SQL_CREATE_ALARM_PROPERTY_CLEANUP_TRIGGER);
 
 		// insert initial list
 		db.execSQL("insert into " + Tables.LISTS + " (" + TaskLists.ACCOUNT_TYPE + ", " + TaskLists.ACCOUNT_NAME + ", " + TaskLists.LIST_NAME + ", "
@@ -536,14 +561,17 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			db.execSQL(SQL_CREATE_TASK_PROPERTY_VIEW);
 			db.execSQL(SQL_CREATE_INSTANCE_VIEW);
 			db.execSQL(SQL_CREATE_INSTANCE_PROPERTY_VIEW);
+			db.execSQL(SQL_CREATE_INSTANCE_CATEGORY_VIEW);
 
 			// create Indices
 			db.execSQL(createIndexString(Tables.PROPERTIES, TaskContract.Properties.MIMETYPE, TaskContract.Properties.TASK_ID));
+			db.execSQL(createIndexString(Tables.PROPERTIES, TaskContract.Properties.TASK_ID));
 			db.execSQL(createIndexString(Tables.CATEGORIES, TaskContract.Categories.ACCOUNT_NAME, TaskContract.Categories.ACCOUNT_TYPE,
 				TaskContract.Categories.NAME));
+			db.execSQL(createIndexString(Tables.CATEGORIES, TaskContract.Categories.NAME));
 
 			// add new triggers
-			db.execSQL(SQL_CREATE_ALARM_PROPERTY_CLEANUP_TRIGGER, new Object[] { Property.Alarm.CONTENT_ITEM_TYPE });
+			db.execSQL(SQL_CREATE_ALARM_PROPERTY_CLEANUP_TRIGGER);
 		}
 
 	}

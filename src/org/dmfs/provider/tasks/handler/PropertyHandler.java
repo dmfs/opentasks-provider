@@ -32,10 +32,7 @@ public abstract class PropertyHandler
 	 * @throws IllegalArgumentException
 	 *             if the {@link ContentValues} are invalid.
 	 */
-	public ContentValues validateValues(SQLiteDatabase db, boolean isNew, ContentValues values, boolean isSyncAdapter)
-	{
-		return null;
-	}
+	public abstract ContentValues validateValues(SQLiteDatabase db, boolean isNew, ContentValues values, boolean isSyncAdapter);
 
 
 	/**
@@ -75,14 +72,7 @@ public abstract class PropertyHandler
 	public int update(SQLiteDatabase db, ContentValues values, String selection, String[] selectionArgs, boolean isSyncAdapter)
 	{
 
-		if (!isSyncAdapter)
-		{
-			// mark task as dirty
-			// values.put(CommonSyncColumns._DIRTY, true);
-			// values.put(TaskColumns.LAST_MODIFIED, System.currentTimeMillis());
-		}
-
-		return 0;
+		return db.update(Tables.PROPERTIES, values, selection, selectionArgs);
 	}
 
 
