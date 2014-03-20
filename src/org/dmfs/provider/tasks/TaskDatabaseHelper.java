@@ -239,6 +239,50 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	private final static String SQL_DROP_TASKS_CLEANUP_TRIGGER =
 		"DROP TRIGGER task_cleanup_trigger;";
 	
+	
+	/**
+	 * SQL command that counts and sets the alarm on deletion
+	 */
+	private final static String SQL_COUNT_ALARMS_ON_DELETE = 
+		" BEGIN UPDATE "+ Tables.TASKS  + " SET " + Tasks.HAS_ALARMS 
+		+ " = (SELECT COUNT (*) FROM " + Tables.PROPERTIES 
+		+ " WHERE " + Properties.MIMETYPE + " = '" + Alarm.CONTENT_ITEM_TYPE + "' AND " + Alarm.ALARM_TYPE + " <> " + Alarm.ALARM_TYPE_NOTHING + " AND " + Properties.TASK_ID + " = OLD."  + Properties.TASK_ID 
+		+ ") WHERE " + Tasks._ID + " = OLD." + Properties.TASK_ID 
+		+ "; END;";  
+	
+	/**
+	 * SQL command that counts and sets the alarm on insert and update
+	 */
+	private final static String SQL_COUNT_ALARMS = 
+		" BEGIN UPDATE "+ Tables.TASKS  + " SET " + Tasks.HAS_ALARMS 
+		+ " = (SELECT COUNT (*) FROM " + Tables.PROPERTIES 
+		+ " WHERE " + Properties.MIMETYPE + " = '" + Alarm.CONTENT_ITEM_TYPE + "' AND " + Alarm.ALARM_TYPE + " <> " + Alarm.ALARM_TYPE_NOTHING + " AND " + Properties.TASK_ID + " = NEW."  + Properties.TASK_ID 
+		+ ") WHERE " + Tasks._ID + " = NEW." + Properties.TASK_ID 
+		+ "; END;";  
+	
+	/**
+	 * SQL command to create a trigger that counts the alarms for a task on create
+	 */
+	private final static String SQL_CREATE_ALARM_COUNT_CREATE_TRIGGER = 
+		"CREATE TRIGGER alarm_count_create_trigger AFTER INSERT ON " + Tables.PROPERTIES  + " WHEN NEW." + Properties.MIMETYPE + " = '" + Alarm.CONTENT_ITEM_TYPE + "'" 
+		+ SQL_COUNT_ALARMS;
+	
+	/**
+	 * SQL command to create a trigger that counts the alarms for a task on update
+	 */
+	private final static String SQL_CREATE_ALARM_COUNT_UPDATE_TRIGGER = 
+		"CREATE TRIGGER alarm_count_update_trigger AFTER UPDATE ON " + Tables.PROPERTIES  + " WHEN NEW." + Properties.MIMETYPE + " = '" + Alarm.CONTENT_ITEM_TYPE + "'"  
+			+ SQL_COUNT_ALARMS;
+	
+	/**
+	 * SQL command to create a trigger that counts the alarms for a task on delete
+	 */
+	private final static String SQL_CREATE_ALARM_COUNT_DELETE_TRIGGER =
+		"CREATE TRIGGER alarm_count_delete_trigger AFTER DELETE ON " + Tables.PROPERTIES  + " WHEN OLD." + Properties.MIMETYPE + " = '" + Alarm.CONTENT_ITEM_TYPE + "'" 
+			+ SQL_COUNT_ALARMS_ON_DELETE;
+	
+		
+	
 	/**
 	 * SQL command to create a trigger to clean up data of removed property.
 	 */
@@ -310,6 +354,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			+ TaskContract.Tasks.RRULE + " TEXT,"
 			+ TaskContract.Tasks.PARENT_ID + " INTEGER,"
 			+ TaskContract.Tasks.SORTING + " TEXT,"
+			+ TaskContract.Tasks.HAS_ALARMS + " INTEGER,"
 			+ TaskContract.Tasks.ORIGINAL_INSTANCE_SYNC_ID + " TEXT,"
 			+ TaskContract.Tasks.ORIGINAL_INSTANCE_ID + " INTEGER,"
 			+ TaskContract.Tasks.ORIGINAL_INSTANCE_TIME + " INTEGER,"
@@ -500,6 +545,11 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		// trigger that removes alarms when an alarm property was deleted
 		db.execSQL(SQL_CREATE_ALARM_PROPERTY_CLEANUP_TRIGGER);
 
+		// trigger that counts the alarms for tasks
+		db.execSQL(SQL_CREATE_ALARM_COUNT_CREATE_TRIGGER);
+		db.execSQL(SQL_CREATE_ALARM_COUNT_UPDATE_TRIGGER);
+		db.execSQL(SQL_CREATE_ALARM_COUNT_DELETE_TRIGGER);
+
 		// insert initial list
 		db.execSQL("insert into " + Tables.LISTS + " (" + TaskLists.ACCOUNT_TYPE + ", " + TaskLists.ACCOUNT_NAME + ", " + TaskLists.LIST_NAME + ", "
 			+ TaskLists.LIST_COLOR + ", " + TaskLists.VISIBLE + ", " + TaskLists.SYNC_ENABLED + ", " + TaskLists.OWNER + ") VALUES (?,?,?,?,?,?,?) ",
@@ -572,6 +622,10 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 
 			// add new triggers
 			db.execSQL(SQL_CREATE_ALARM_PROPERTY_CLEANUP_TRIGGER);
+			db.execSQL(SQL_CREATE_ALARM_COUNT_CREATE_TRIGGER);
+			db.execSQL(SQL_CREATE_ALARM_COUNT_UPDATE_TRIGGER);
+			db.execSQL(SQL_CREATE_ALARM_COUNT_DELETE_TRIGGER);
+
 		}
 
 	}

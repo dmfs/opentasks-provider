@@ -674,6 +674,15 @@ public final class TaskContract
 		 * </p>
 		 */
 		public static final String SORTING = "sorting";
+
+		/**
+		 * Indicates how many alarms a task has. <code>0</code> means the task has no alarms.
+		 * <p>
+		 * Value: Integer
+		 * </p>
+		 * 
+		 */
+		public static final String HAS_ALARMS = "has_alarms";
 	}
 
 	/**
