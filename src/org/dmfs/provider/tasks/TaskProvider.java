@@ -26,9 +26,13 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TimeZone;
 
+import org.dmfs.provider.tasks.TaskContract.Alarms;
+import org.dmfs.provider.tasks.TaskContract.Categories;
 import org.dmfs.provider.tasks.TaskContract.CategoriesColumns;
 import org.dmfs.provider.tasks.TaskContract.CommonSyncColumns;
 import org.dmfs.provider.tasks.TaskContract.Instances;
+import org.dmfs.provider.tasks.TaskContract.Properties;
+import org.dmfs.provider.tasks.TaskContract.PropertyColumns;
 import org.dmfs.provider.tasks.TaskContract.TaskColumns;
 import org.dmfs.provider.tasks.TaskContract.TaskListColumns;
 import org.dmfs.provider.tasks.TaskContract.TaskListSyncColumns;
@@ -37,6 +41,9 @@ import org.dmfs.provider.tasks.TaskContract.TaskSyncColumns;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
 import org.dmfs.provider.tasks.handler.AlarmNotificationHandler;
+import org.dmfs.provider.tasks.handler.PropertyHandler;
+import org.dmfs.provider.tasks.handler.PropertyHandlerFactory;
+
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
@@ -85,6 +92,10 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	private static final int INSTANCE_ID = 104;
 	private static final int CATEGORIES = 1001;
 	private static final int CATEGORY_ID = 1002;
+	private static final int PROPERTIES = 1003;
+	private static final int PROPERTY_ID = 1004;
+	private static final int ALARMS = 1005;
+	private static final int ALARM_ID = 1006;
 
 	private static final UriMatcher uriMatcher;
 
@@ -143,6 +154,20 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	public boolean isCallerSyncAdapter(Uri uri)
 	{
 		String param = uri.getQueryParameter(TaskContract.CALLER_IS_SYNCADAPTER);
+		return param != null && !"false".equals(param);
+	}
+
+
+	/**
+	 * Return true if the URI indicates to a load extended properties with {@link TaskContract#LOAD_PROPERTIES}.
+	 * 
+	 * @param uri
+	 *            The {@link Uri} to check.
+	 * @return <code>true</code> if the URI requests to load extended properties, <code>false</code> otherwise.
+	 */
+	public boolean shouldLoadProperties(Uri uri)
+	{
+		String param = uri.getQueryParameter(TaskContract.LOAD_PROPERTIES);
 		return param != null && !"false".equals(param);
 	}
 
@@ -328,6 +353,19 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	}
 
 
+	protected StringBuilder selectPropertyId(Uri uri)
+	{
+		StringBuilder sb = new StringBuilder(128);
+		return selectPropertyId(sb, uri);
+	}
+
+
+	protected StringBuilder selectPropertyId(StringBuilder sb, Uri uri)
+	{
+		return _selectId(sb, getId(uri), PropertyColumns.PROPERTY_ID);
+	}
+
+
 	/**
 	 * Add a selection by ID to the given {@link SQLiteQueryBuilder}. The id is taken from the given Uri.
 	 * 
@@ -404,7 +442,15 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				break;
 
 			case TASKS:
-				sqlBuilder.setTables(Tables.TASKS_VIEW);
+				if (shouldLoadProperties(uri))
+				{
+					// extended properties were requested, therefore change to task view that includes these properties
+					sqlBuilder.setTables(Tables.TASKS_PROPERTY_VIEW);
+				}
+				else
+				{
+					sqlBuilder.setTables(Tables.TASKS_VIEW);
+				}
 				if (!isSyncAdapter)
 				{
 					// do not return deleted rows if caller is not a sync adapter
@@ -417,7 +463,15 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				break;
 
 			case TASK_ID:
-				sqlBuilder.setTables(Tables.TASKS_VIEW);
+				if (shouldLoadProperties(uri))
+				{
+					// extended properties were requested, therefore change to task view that includes these properties
+					sqlBuilder.setTables(Tables.TASKS_PROPERTY_VIEW);
+				}
+				else
+				{
+					sqlBuilder.setTables(Tables.TASKS_VIEW);
+				}
 				selectId(sqlBuilder, TaskColumns._ID, uri);
 				if (!isSyncAdapter)
 				{
@@ -431,7 +485,15 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				break;
 
 			case INSTANCES:
-				sqlBuilder.setTables(Tables.INSTANCE_VIEW);
+				if (shouldLoadProperties(uri))
+				{
+					// extended properties were requested, therefore change to instance view that includes these properties
+					sqlBuilder.setTables(Tables.INSTANCE_PROPERTY_VIEW);
+				}
+				else
+				{
+					sqlBuilder.setTables(Tables.INSTANCE_VIEW);
+				}
 				if (!isSyncAdapter)
 				{
 					// do not return deleted rows if caller is not a sync adapter
@@ -444,7 +506,15 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				break;
 
 			case INSTANCE_ID:
-				sqlBuilder.setTables(Tables.INSTANCE_VIEW);
+				if (shouldLoadProperties(uri))
+				{
+					// extended properties were requested, therefore change to instance view that includes these properties
+					sqlBuilder.setTables(Tables.INSTANCE_PROPERTY_VIEW);
+				}
+				else
+				{
+					sqlBuilder.setTables(Tables.INSTANCE_VIEW);
+				}
 				selectId(sqlBuilder, Instances._ID, uri);
 				if (!isSyncAdapter)
 				{
@@ -471,6 +541,16 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				if (sortOrder == null || sortOrder.length() == 0)
 					sortOrder = TaskContract.Categories.DEFAULT_SORT_ORDER;
 				break;
+
+			case PROPERTIES:
+				sqlBuilder.setTables(Tables.PROPERTIES);
+				break;
+
+			case PROPERTY_ID:
+				sqlBuilder.setTables(Tables.PROPERTIES);
+				selectId(sqlBuilder, PropertyColumns.PROPERTY_ID, uri);
+				break;
+
 			default:
 				throw new IllegalArgumentException("Unknown URI " + uri);
 		}
@@ -552,9 +632,40 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 
 				}
 				break;
-			case CATEGORIES:
+
+			case ALARM_ID:
+				// add id to selection and fall through
+				selection = updateSelection(selectId(uri), selection);
+
+			case ALARMS:
+
+				count = db.delete(Tables.ALARMS, selection, selectionArgs);
 				break;
-			case CATEGORY_ID:
+
+			case PROPERTY_ID:
+				String[] queryProjection = { Properties.MIMETYPE };
+				selection = updateSelection(selectPropertyId(uri), selection);
+
+				Cursor cursor = db.query(Tables.PROPERTIES, queryProjection, selection, selectionArgs, null, null, null);
+
+				String mimeType = null;
+				try
+				{
+					if (cursor.moveToFirst())
+					{
+						mimeType = cursor.getString(0);
+					}
+				}
+				finally
+				{
+					cursor.close();
+				}
+				if (mimeType != null)
+				{
+					PropertyHandler handler = PropertyHandlerFactory.create(mimeType);
+					count = handler.delete(db, selection, selectionArgs, isSyncAdapter);
+				}
+
 				break;
 
 			default:
@@ -632,11 +743,17 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 
 				break;
 
-			case CATEGORIES:
-				// TODO
-				rowId = db.insert(Tables.CATEGORIES, "", values);
-				result_uri = TaskContract.Categories.CONTENT_URI;
+			case PROPERTIES:
+				PropertyHandler handler = PropertyHandlerFactory.create(values.getAsString(Properties.MIMETYPE));
+				rowId = handler.insert(db, values, isSyncAdapter);
+				result_uri = TaskContract.Properties.CONTENT_URI;
+				if (rowId > 0)
+				{
+					postNotifyUri(Tasks.CONTENT_URI);
+					postNotifyUri(Instances.CONTENT_URI);
+				}
 				break;
+
 			default:
 				throw new IllegalArgumentException("Unknown URI " + uri);
 		}
@@ -712,9 +829,46 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				new AlarmNotificationHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
 
 				break;
-			case CATEGORIES:
+			case PROPERTY_ID:
+				if (!values.containsKey(Properties.PROPERTY_ID))
+				{
+					throw new IllegalArgumentException("PROPERTY_ID is required on UPDATE");
+				}
+				String newPropertySelection = updateSelection(selectId(uri), selection);
+
+				// query existing property to check mimetype
+				Cursor cursor = db.query(Tables.PROPERTIES, new String[] { Properties.MIMETYPE }, values.getAsString(Properties.PROPERTY_ID) + " = "
+					+ Properties.PROPERTY_ID, null, null, null, null);
+				try
+				{
+					if (cursor.moveToFirst())
+					{
+						// create handler from found mimetype
+						PropertyHandler handler = PropertyHandlerFactory.create(cursor.getString(0));
+						count = handler.update(db, values, newPropertySelection, selectionArgs, isSyncAdapter);
+						if (count > 0)
+						{
+							postNotifyUri(Tasks.CONTENT_URI);
+							postNotifyUri(Instances.CONTENT_URI);
+						}
+					}
+				}
+				finally
+				{
+					cursor.close();
+				}
+
 				break;
+
 			case CATEGORY_ID:
+				String newCategorySelection = updateSelection(selectId(uri), selection);
+				validateCategoryValues(values, false, isSyncAdapter);
+				count = db.update(Tables.CATEGORIES, values, newCategorySelection, selectionArgs);
+				break;
+			case ALARM_ID:
+				String newAlarmSelection = updateSelection(selectId(uri), selection);
+				validateAlarmValues(values, false, isSyncAdapter);
+				count = db.update(Tables.ALARMS, values, newAlarmSelection, selectionArgs);
 				break;
 			default:
 				throw new IllegalArgumentException("Unknown URI " + uri);
@@ -1296,6 +1450,51 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	}
 
 
+	/**
+	 * Validate the given category values.
+	 * 
+	 * @param values
+	 *            The category properties to validate.
+	 * @throws IllegalArgumentException
+	 *             if any of the values is invalid.
+	 */
+	private void validateCategoryValues(ContentValues values, boolean isNew, boolean isSyncAdapter)
+	{
+		// row id can not be changed or set manually
+		if (values.containsKey(Categories._ID))
+		{
+			throw new IllegalArgumentException("_ID can not be set manually");
+		}
+
+		if (isNew != values.containsKey(Categories.ACCOUNT_NAME) && (!isNew || values.get(Categories.ACCOUNT_NAME) != null))
+		{
+			throw new IllegalArgumentException("ACCOUNT_NAME is write-once and required on INSERT");
+		}
+
+		if (isNew != values.containsKey(Categories.ACCOUNT_TYPE) && (!isNew || values.get(Categories.ACCOUNT_TYPE) != null))
+		{
+			throw new IllegalArgumentException("ACCOUNT_TYPE is write-once and required on INSERT");
+		}
+	}
+
+
+	/**
+	 * Validate the given alarm values.
+	 * 
+	 * @param values
+	 *            The alarm values to validate
+	 * @throws IllegalArgumentException
+	 *             if any of the values is invalid.
+	 */
+	private void validateAlarmValues(ContentValues values, boolean isNew, boolean isSyncAdapter)
+	{
+		if (values.containsKey(Alarms.ALARM_ID))
+		{
+			throw new IllegalArgumentException("ALARM_ID can not be set manually");
+		}
+	}
+
+
 	@Override
 	public String getType(Uri uri)
 	{
@@ -1329,8 +1528,14 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Instances.CONTENT_URI_PATH, INSTANCES);
 		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Instances.CONTENT_URI_PATH + "/#", INSTANCE_ID);
 
+		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Properties.CONTENT_URI_PATH, PROPERTIES);
+		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Properties.CONTENT_URI_PATH + "/#", PROPERTY_ID);
+
 		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Categories.CONTENT_URI_PATH, CATEGORIES);
 		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Categories.CONTENT_URI_PATH + "/#", CATEGORY_ID);
+
+		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Alarms.CONTENT_URI_PATH, ALARMS);
+		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Alarms.CONTENT_URI_PATH + "/#", ALARM_ID);
 	}
 
 
