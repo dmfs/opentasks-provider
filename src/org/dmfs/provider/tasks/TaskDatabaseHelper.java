@@ -627,7 +627,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			db.execSQL(SQL_CREATE_ALARM_COUNT_DELETE_TRIGGER);
 
 		}
-		if (newVersion < 5)
+		if (oldVersion < 5)
 		{
 			db.execSQL("alter table " + Tables.TASKS + " add column " + Tasks.PARENT_ID + " integer;");
 			db.execSQL("alter table " + Tables.TASKS + " add column " + Tasks.HAS_ALARMS + " integer;");
