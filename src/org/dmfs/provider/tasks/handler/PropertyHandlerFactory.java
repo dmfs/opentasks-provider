@@ -29,6 +29,6 @@ public class PropertyHandlerFactory
 		{
 			return new AlarmHandler();
 		}
-		return null;
+		return new DefaultPropertyHandler();
 	}
 }

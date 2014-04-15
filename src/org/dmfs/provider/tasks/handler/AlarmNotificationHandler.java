@@ -109,7 +109,8 @@ public class AlarmNotificationHandler extends BroadcastReceiver
 	{
 		mDb = db;
 		String[] projection = new String[] { Instances.TASK_ID, Instances.INSTANCE_DUE, Tasks.TITLE };
-		String selection = time + " <= " + Instances.INSTANCE_DUE;
+		String selection = time + " <= " + Instances.INSTANCE_DUE + " AND " + Instances.STATUS + " IS NOT " + Instances.STATUS_COMPLETED + " AND "
+			+ Instances.STATUS + " IS NOT " + Instances.STATUS_CANCELLED;
 		Cursor cursor = db.query(Tables.INSTANCE_VIEW, projection, selection, null, null, null, Instances.INSTANCE_DUE, "1");
 
 		if (cursor != null)
@@ -153,7 +154,8 @@ public class AlarmNotificationHandler extends BroadcastReceiver
 			long currentDueTime = intent.getExtras().getLong(EXTRA_TASK_DUE_TIME);
 			long nextDueTime = currentDueTime + 1000;
 			String[] projection = new String[] { Instances.TASK_ID, Instances.INSTANCE_DUE, Tasks.TITLE };
-			String selection = nextDueTime + " > " + Instances.INSTANCE_DUE + " AND " + currentDueTime + " <= " + Instances.INSTANCE_DUE;
+			String selection = nextDueTime + " > " + Instances.INSTANCE_DUE + " AND " + currentDueTime + " <= " + Instances.INSTANCE_DUE + " AND "
+				+ Instances.STATUS + " IS NOT " + Instances.STATUS_COMPLETED + " AND " + Instances.STATUS + " IS NOT " + Instances.STATUS_CANCELLED;
 			Cursor cursor = mDb.query(Tables.INSTANCE_VIEW, projection, selection, null, null, null, Instances.INSTANCE_DUE);
 
 			if (cursor != null)
