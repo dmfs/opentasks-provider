@@ -107,10 +107,10 @@ public class AlarmNotificationHandler extends BroadcastReceiver
 	 */
 	public void setUpcomingDueAlarm(SQLiteDatabase db, long time)
 	{
+		// search for next upcoming instance which are open
 		mDb = db;
 		String[] projection = new String[] { Instances.TASK_ID, Instances.INSTANCE_DUE, Tasks.TITLE };
-		String selection = time + " <= " + Instances.INSTANCE_DUE + " AND " + Instances.STATUS + " IS NOT " + Instances.STATUS_COMPLETED + " AND "
-			+ Instances.STATUS + " IS NOT " + Instances.STATUS_CANCELLED;
+		String selection = time + " <= " + Instances.INSTANCE_DUE + " AND " + Instances.IS_CLOSED + " = 0";
 		Cursor cursor = db.query(Tables.INSTANCE_VIEW, projection, selection, null, null, null, Instances.INSTANCE_DUE, "1");
 
 		if (cursor != null)
