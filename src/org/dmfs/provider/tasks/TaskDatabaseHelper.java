@@ -48,7 +48,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	/**
 	 * The database version.
 	 */
-	static final int DATABASE_VERSION = 5;
+	static final int DATABASE_VERSION = 6;
 
 	/**
 	 * List of all tables we provide.
@@ -627,7 +627,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			db.execSQL(SQL_CREATE_ALARM_COUNT_DELETE_TRIGGER);
 
 		}
-		if (oldVersion < 5)
+		if (oldVersion < 6)
 		{
 			db.execSQL("alter table " + Tables.TASKS + " add column " + Tasks.PARENT_ID + " integer;");
 			db.execSQL("alter table " + Tables.TASKS + " add column " + Tasks.HAS_ALARMS + " integer;");
