@@ -22,7 +22,9 @@ import org.dmfs.provider.tasks.TaskContract.Property.Alarm;
 import org.dmfs.provider.tasks.TaskContract.TaskLists;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 
+import android.accounts.Account;
 import android.content.Context;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.graphics.Color;
@@ -48,7 +50,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	/**
 	 * The database version.
 	 */
-	static final int DATABASE_VERSION = 6;
+	static final int DATABASE_VERSION = 7;
 
 	/**
 	 * List of all tables we provide.
@@ -231,6 +233,15 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		+ " BEGIN "
 		+ " DELETE FROM " + Tables.PROPERTIES + " WHERE " + TaskContract.Properties.TASK_ID + "= old." + TaskContract.Tasks._ID + ";"
 		+ " DELETE FROM " + Tables.INSTANCES + " WHERE " + TaskContract.Instances.TASK_ID + "=old." + TaskContract.Tasks._ID + ";"
+		+ " END;";
+	
+	/**
+	 * SQL command to create a trigger to clean up data of removed lists.
+	 */
+	private final static String SQL_CREATE_LISTS_CLEANUP_TRIGGER =
+		"CREATE TRIGGER list_cleanup_trigger AFTER DELETE ON " + Tables.LISTS
+		+ " BEGIN "
+		+ " DELETE FROM " + Tables.TASKS + " WHERE " + Tasks.LIST_ID + "= old." + TaskLists._ID + ";"
 		+ " END;";
 	
 	/**
@@ -478,6 +489,77 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 
 
 	/**
+	 * Deletes task lists from the database which belong to account which aren't on the device anymore.
+	 * 
+	 * @param db
+	 *            The writable {@link SQLiteDatabase}.
+	 * @param existingAccounts
+	 *            The array of {@link Account}s on the device.
+	 * @return The number of deleted lists.
+	 */
+	public int cleanLists(SQLiteDatabase db, Account[] existingAccounts)
+	{
+		// check for the accounts in our database
+		Cursor accountCursor = db.query(Tables.LISTS, new String[] { TaskLists._ID, TaskLists.ACCOUNT_NAME, TaskLists.ACCOUNT_TYPE }, null, null,
+			TaskLists.ACCOUNT_NAME + ", " + TaskLists.ACCOUNT_TYPE, null, null);
+		int count = accountCursor.getCount();
+		if (accountCursor.moveToFirst() && accountCursor.getCount() > existingAccounts.length + 1)
+		{
+			Account[] localAccounts = new Account[count];
+			int i = 0;
+			while (!accountCursor.isAfterLast())
+			{
+				localAccounts[i++] = new Account(accountCursor.getString(1), accountCursor.getString(2));
+				accountCursor.moveToNext();
+			}
+			accountCursor.close();
+
+			// clean database for each old account
+			for (Account account : localAccounts)
+			{
+				// skip local accounts
+				if (!account.type.equals(TaskContract.LOCAL_ACCOUNT))
+				{
+					boolean found = false;
+					for (Account existingAccount : existingAccounts)
+					{
+						if (existingAccount.name.equals(account.name) && existingAccount.type.equals(account.type))
+						{
+							found = true;
+							break;
+						}
+					}
+					if (!found)
+					{
+						return deleteLists(db, account);
+					}
+				}
+			}
+
+		}
+		return 0;
+	}
+
+
+	/**
+	 * Deletes task lists from the database that belongs to the {@link Account}.
+	 * 
+	 * @param db
+	 *            The writable {@link SQLiteDatabase}.
+	 * @param account
+	 *            The {@link Account}.
+	 * @return The number of deleted lists.
+	 */
+	private int deleteLists(SQLiteDatabase db, Account account)
+	{
+		// delete lists
+		return db.delete(Tables.LISTS, String.format("(%s=? AND %s=?)", TaskLists.ACCOUNT_NAME, TaskLists.ACCOUNT_NAME), new String[] { account.name,
+			account.type });
+
+	}
+
+
+	/**
 	 * Creates the tables, views, triggers and indices.
 	 * 
 	 * TODO: move all strings to separate final static variables.
@@ -544,6 +626,9 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 
 		// trigger that removes alarms when an alarm property was deleted
 		db.execSQL(SQL_CREATE_ALARM_PROPERTY_CLEANUP_TRIGGER);
+
+		// trigger that removes tasks when a list was removed
+		db.execSQL(SQL_CREATE_LISTS_CLEANUP_TRIGGER);
 
 		// trigger that counts the alarms for tasks
 		db.execSQL(SQL_CREATE_ALARM_COUNT_CREATE_TRIGGER);
@@ -632,6 +717,10 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			db.execSQL("alter table " + Tables.TASKS + " add column " + Tasks.PARENT_ID + " integer;");
 			db.execSQL("alter table " + Tables.TASKS + " add column " + Tasks.HAS_ALARMS + " integer;");
 			db.execSQL("alter table " + Tables.TASKS + " add column " + Tasks.SORTING + " text;");
+		}
+		if (oldVersion < 7)
+		{
+			db.execSQL(SQL_CREATE_LISTS_CLEANUP_TRIGGER);
 		}
 
 	}
