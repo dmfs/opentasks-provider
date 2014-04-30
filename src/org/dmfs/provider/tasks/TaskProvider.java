@@ -40,10 +40,10 @@ import org.dmfs.provider.tasks.TaskContract.TaskLists;
 import org.dmfs.provider.tasks.TaskContract.TaskSyncColumns;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
-import org.dmfs.provider.tasks.handler.AlarmNotificationHandler;
+import org.dmfs.provider.tasks.broadcast.DueAlarmBroadcastHandler;
+import org.dmfs.provider.tasks.broadcast.StartAlarmBroadcastHandler;
 import org.dmfs.provider.tasks.handler.PropertyHandler;
 import org.dmfs.provider.tasks.handler.PropertyHandlerFactory;
-
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
@@ -628,7 +628,8 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 					count = db.update(Tables.TASKS, values, selection, selectionArgs);
 
 					// update alarms
-					new AlarmNotificationHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
+					new DueAlarmBroadcastHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
+					new StartAlarmBroadcastHandler(getContext()).setUpcomingStartAlarm(mDb, System.currentTimeMillis());
 
 				}
 				break;
@@ -739,7 +740,8 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				result_uri = TaskContract.Tasks.CONTENT_URI;
 
 				// update alarms
-				new AlarmNotificationHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
+				new DueAlarmBroadcastHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
+				new StartAlarmBroadcastHandler(getContext()).setUpcomingStartAlarm(mDb, System.currentTimeMillis());
 
 				break;
 
@@ -807,7 +809,8 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				updateInstancesOfAllTasks(db, values, selection, selectionArgs);
 
 				// update alarms
-				new AlarmNotificationHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
+				new DueAlarmBroadcastHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
+				new StartAlarmBroadcastHandler(getContext()).setUpcomingStartAlarm(mDb, System.currentTimeMillis());
 
 				break;
 			case TASK_ID:
@@ -826,7 +829,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				updateInstancesOfOneTask(db, getId(uri), values, taskSelection, selectionArgs);
 
 				// update alarms
-				new AlarmNotificationHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
+				new DueAlarmBroadcastHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
 
 				break;
 			case PROPERTY_ID:

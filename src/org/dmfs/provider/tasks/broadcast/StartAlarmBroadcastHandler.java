@@ -1,4 +1,4 @@
-package org.dmfs.provider.tasks.handler;
+package org.dmfs.provider.tasks.broadcast;
 
 import java.lang.ref.SoftReference;
 
@@ -20,19 +20,21 @@ import android.os.Build;
 
 
 /**
- * This class is used to register and manager system alarm for tasks and notifying the main task app.
+ * This class is used to register and manager system alarm for task starts and notifying the main task app.
  * 
  * 
  * @author Tobias Reinsch <tobias@dmfs.org>
  * 
  */
-public class AlarmNotificationHandler extends BroadcastReceiver
+public class StartAlarmBroadcastHandler extends BroadcastReceiver
 {
 
-	private static int REQUEST_CODE_DUE_ALARM = 1337;
+	private static int REQUEST_CODE_START_ALARM = 1338;
 	public static String EXTRA_TASK_ID = "task_id";
-	public static String EXTRA_TASK_DUE_TIME = "task_due";
+	public static String EXTRA_TASK_START_TIME = "task_start";
 	public static String EXTRA_TASK_TITLE = "task_title";
+
+	public static String BROADCAST_START_ALARM = "org.dmfs.android.tasks.taskstart";
 
 	private static SoftReference<Context> mContext;
 	private AlarmManager mAlarmManager;
@@ -42,19 +44,19 @@ public class AlarmNotificationHandler extends BroadcastReceiver
 	/**
 	 * Empty constructor only for the broadcast receiver.
 	 */
-	public AlarmNotificationHandler()
+	public StartAlarmBroadcastHandler()
 	{
 
 	}
 
 
 	/**
-	 * Creates the {@link AlarmNotificationHandler}.
+	 * Creates the {@link StartAlarmBroadcastHandler}.
 	 * 
 	 * @param context
 	 *            A {@link Context}.
 	 */
-	public AlarmNotificationHandler(Context context)
+	public StartAlarmBroadcastHandler(Context context)
 	{
 		mContext = new SoftReference<Context>(context);
 		mAlarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
@@ -62,56 +64,56 @@ public class AlarmNotificationHandler extends BroadcastReceiver
 
 
 	/**
-	 * Registers a system alarm for the due date of the task.
+	 * Registers a system alarm for the start date of the task.
 	 * 
 	 * @param taskId
 	 *            The row id of the task to set an alarm for.
-	 * @param dueTime
-	 *            The date in milliseconds when the task is due.
+	 * @param startTime
+	 *            The date in milliseconds when the task starts.
 	 * @param taskTitle
 	 *            The title of the task.
 	 */
 	@TargetApi(19)
-	public void setDueAlarm(long taskId, long dueTime, String taskTitle)
+	public void setStartAlarm(long taskId, long startTime, String taskTitle)
 	{
 		Context context = mContext.get();
 		if (context != null)
 		{
-			Intent intentAlarm = new Intent(context, AlarmNotificationHandler.class);
+			Intent intentAlarm = new Intent(context, StartAlarmBroadcastHandler.class);
 			intentAlarm.putExtra(EXTRA_TASK_ID, taskId);
-			intentAlarm.putExtra(EXTRA_TASK_DUE_TIME, dueTime);
+			intentAlarm.putExtra(EXTRA_TASK_START_TIME, startTime);
 			intentAlarm.putExtra(EXTRA_TASK_TITLE, taskTitle);
-			PendingIntent pendingIntent = PendingIntent.getBroadcast(context, REQUEST_CODE_DUE_ALARM, intentAlarm, PendingIntent.FLAG_UPDATE_CURRENT);
+			PendingIntent pendingIntent = PendingIntent.getBroadcast(context, REQUEST_CODE_START_ALARM, intentAlarm, PendingIntent.FLAG_UPDATE_CURRENT);
 
 			// AlarmManager API changed in v19 (KitKat) and the "set" method is not called at the exact time anymore
 			if (Build.VERSION.SDK_INT > 18)
 			{
-				mAlarmManager.setExact(AlarmManager.RTC_WAKEUP, dueTime, pendingIntent);
+				mAlarmManager.setExact(AlarmManager.RTC_WAKEUP, startTime, pendingIntent);
 			}
 			else
 			{
-				mAlarmManager.set(AlarmManager.RTC_WAKEUP, dueTime, pendingIntent);
+				mAlarmManager.set(AlarmManager.RTC_WAKEUP, startTime, pendingIntent);
 			}
 		}
 	}
 
 
 	/**
-	 * Query the database for the next upcoming due task instance and sets the alarm for it.
+	 * Query the database for the next upcoming task start instance and sets the alarm for it.
 	 * 
 	 * @param db
 	 *            The {@link SQLiteDatabase}.
 	 * @param time
-	 *            The absolute minimum time in milliseconds when the next alarm can be due.
+	 *            The absolute minimum time in milliseconds when the next alarm stars.
 	 * 
 	 */
-	public void setUpcomingDueAlarm(SQLiteDatabase db, long time)
+	public void setUpcomingStartAlarm(SQLiteDatabase db, long time)
 	{
 		// search for next upcoming instance which are open
 		mDb = db;
-		String[] projection = new String[] { Instances.TASK_ID, Instances.INSTANCE_DUE, Tasks.TITLE };
-		String selection = time + " <= " + Instances.INSTANCE_DUE + " AND " + Instances.IS_CLOSED + " = 0";
-		Cursor cursor = db.query(Tables.INSTANCE_VIEW, projection, selection, null, null, null, Instances.INSTANCE_DUE, "1");
+		String[] projection = new String[] { Instances.TASK_ID, Instances.INSTANCE_START, Tasks.TITLE };
+		String selection = time + " <= " + Instances.INSTANCE_START + " AND " + Instances.IS_CLOSED + " = 0";
+		Cursor cursor = db.query(Tables.INSTANCE_VIEW, projection, selection, null, null, null, Instances.INSTANCE_START, "1");
 
 		if (cursor != null)
 		{
@@ -119,7 +121,7 @@ public class AlarmNotificationHandler extends BroadcastReceiver
 			{
 				if (cursor.moveToFirst())
 				{
-					setDueAlarm(cursor.getLong(0), cursor.getLong(1), cursor.getString(2));
+					setStartAlarm(cursor.getLong(0), cursor.getLong(1), cursor.getString(2));
 				}
 			}
 			finally
@@ -139,7 +141,7 @@ public class AlarmNotificationHandler extends BroadcastReceiver
 
 		mContext = new SoftReference<Context>(context);
 		mAlarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-		if (intent.hasExtra(EXTRA_TASK_ID))
+		if (intent.hasExtra(EXTRA_TASK_START_TIME))
 		{
 
 			SQLiteDatabase db;
@@ -150,13 +152,13 @@ public class AlarmNotificationHandler extends BroadcastReceiver
 				mDb = db;
 			}
 
-			// check for all tasks which are due since the due alarm was set plus 1 second
-			long currentDueTime = intent.getExtras().getLong(EXTRA_TASK_DUE_TIME);
-			long nextDueTime = currentDueTime + 1000;
-			String[] projection = new String[] { Instances.TASK_ID, Instances.INSTANCE_DUE, Tasks.TITLE };
-			String selection = nextDueTime + " > " + Instances.INSTANCE_DUE + " AND " + currentDueTime + " <= " + Instances.INSTANCE_DUE + " AND "
-				+ Instances.STATUS + " IS NOT " + Instances.STATUS_COMPLETED + " AND " + Instances.STATUS + " IS NOT " + Instances.STATUS_CANCELLED;
-			Cursor cursor = mDb.query(Tables.INSTANCE_VIEW, projection, selection, null, null, null, Instances.INSTANCE_DUE);
+			// check for all tasks which are due since the start alarm was set plus 1 second
+			long currentStartTime = intent.getExtras().getLong(EXTRA_TASK_START_TIME);
+			long nextStartTime = currentStartTime + 1000;
+			String[] projection = new String[] { Instances.TASK_ID, Instances.INSTANCE_START, Tasks.TITLE };
+			String selection = nextStartTime + " > " + Instances.INSTANCE_START + " AND " + currentStartTime + " <= " + Instances.INSTANCE_START + " AND "
+				+ Instances.IS_CLOSED + " = 0";
+			Cursor cursor = mDb.query(Tables.INSTANCE_VIEW, projection, selection, null, null, null, Instances.INSTANCE_START);
 
 			if (cursor != null)
 			{
@@ -167,7 +169,7 @@ public class AlarmNotificationHandler extends BroadcastReceiver
 						while (!cursor.isAfterLast())
 						{
 							// inform the application
-							sendTaskDueAlarmBroadcast(cursor.getLong(0), cursor.getLong(1), cursor.getString(2));
+							sendTaskStartAlarmBroadcast(cursor.getLong(0), cursor.getLong(1), cursor.getString(2));
 							cursor.moveToNext();
 						}
 
@@ -179,7 +181,7 @@ public class AlarmNotificationHandler extends BroadcastReceiver
 				}
 			}
 			// Set the next alarm
-			setUpcomingDueAlarm(mDb, nextDueTime);
+			setUpcomingStartAlarm(mDb, nextStartTime);
 			mDb.close();
 		}
 		else if (intent.getAction().equals("android.intent.action.BOOT_COMPLETED"))
@@ -189,7 +191,7 @@ public class AlarmNotificationHandler extends BroadcastReceiver
 			mAlarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
 			SQLiteOpenHelper dBHelper = new TaskProvider().getDatabaseHelper(context);
 			SQLiteDatabase db = dBHelper.getReadableDatabase();
-			setUpcomingDueAlarm(db, System.currentTimeMillis());
+			setUpcomingStartAlarm(db, System.currentTimeMillis());
 			db.close();
 
 		}
@@ -197,25 +199,25 @@ public class AlarmNotificationHandler extends BroadcastReceiver
 
 
 	/**
-	 * Notifies the main application about the due task.
+	 * Notifies the main application about the task start.
 	 * 
 	 * @param taskId
 	 *            The row id of the task to set an alarm for.
 	 * @param dueDate
-	 *            The date in milliseconds when the task is due.
+	 *            The date in milliseconds when the task starts.
 	 * @param taskTitle
 	 *            The title of the task.
 	 */
-	private void sendTaskDueAlarmBroadcast(long taskId, long dueDate, String taskTitle)
+	private void sendTaskStartAlarmBroadcast(long taskId, long startDate, String taskTitle)
 	{
 		Context context = mContext.get();
 		if (context != null)
 		{
 			Intent intent = new Intent();
 			intent.putExtra(EXTRA_TASK_ID, taskId);
-			intent.putExtra(EXTRA_TASK_DUE_TIME, dueDate);
+			intent.putExtra(EXTRA_TASK_START_TIME, startDate);
 			intent.putExtra(EXTRA_TASK_TITLE, taskTitle);
-			intent.setAction("org.dmfs.android.tasks.taskdue");
+			intent.setAction(BROADCAST_START_ALARM);
 			context.sendBroadcast(intent);
 		}
 
