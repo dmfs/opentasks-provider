@@ -2,6 +2,7 @@ package org.dmfs.provider.tasks.broadcast;
 
 import java.lang.ref.SoftReference;
 
+import org.dmfs.provider.tasks.TaskContract;
 import org.dmfs.provider.tasks.TaskContract.Instances;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
@@ -11,6 +12,7 @@ import android.annotation.TargetApi;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
+import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
@@ -214,6 +216,7 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 		if (context != null)
 		{
 			Intent intent = new Intent();
+			intent.setData(ContentUris.withAppendedId(TaskContract.Tasks.CONTENT_URI, taskId));
 			intent.putExtra(EXTRA_TASK_ID, taskId);
 			intent.putExtra(EXTRA_TASK_START_TIME, startDate);
 			intent.putExtra(EXTRA_TASK_TITLE, taskTitle);
