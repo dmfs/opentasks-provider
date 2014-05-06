@@ -503,40 +503,38 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		Cursor accountCursor = db.query(Tables.LISTS, new String[] { TaskLists._ID, TaskLists.ACCOUNT_NAME, TaskLists.ACCOUNT_TYPE }, null, null,
 			TaskLists.ACCOUNT_NAME + ", " + TaskLists.ACCOUNT_TYPE, null, null);
 		int count = accountCursor.getCount();
-		if (accountCursor.moveToFirst() && accountCursor.getCount() > existingAccounts.length + 1)
-		{
-			Account[] localAccounts = new Account[count];
-			int i = 0;
-			while (!accountCursor.isAfterLast())
-			{
-				localAccounts[i++] = new Account(accountCursor.getString(1), accountCursor.getString(2));
-				accountCursor.moveToNext();
-			}
-			accountCursor.close();
 
-			// clean database for each old account
-			for (Account account : localAccounts)
+		Account[] localAccounts = new Account[count];
+		int i = 0;
+		while (!accountCursor.isAfterLast())
+		{
+			localAccounts[i++] = new Account(accountCursor.getString(1), accountCursor.getString(2));
+			accountCursor.moveToNext();
+		}
+		accountCursor.close();
+
+		// clean database for each old account
+		for (Account account : localAccounts)
+		{
+			// skip local accounts
+			if (!account.type.equals(TaskContract.LOCAL_ACCOUNT))
 			{
-				// skip local accounts
-				if (!account.type.equals(TaskContract.LOCAL_ACCOUNT))
+				boolean found = false;
+				for (Account existingAccount : existingAccounts)
 				{
-					boolean found = false;
-					for (Account existingAccount : existingAccounts)
+					if (existingAccount.name.equals(account.name) && existingAccount.type.equals(account.type))
 					{
-						if (existingAccount.name.equals(account.name) && existingAccount.type.equals(account.type))
-						{
-							found = true;
-							break;
-						}
-					}
-					if (!found)
-					{
-						return deleteLists(db, account);
+						found = true;
+						break;
 					}
 				}
+				if (!found)
+				{
+					return deleteLists(db, account);
+				}
 			}
-
 		}
+
 		return 0;
 	}
 
