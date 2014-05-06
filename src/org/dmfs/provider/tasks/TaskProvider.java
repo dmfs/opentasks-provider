@@ -18,10 +18,8 @@
 package org.dmfs.provider.tasks;
 
 import java.sql.RowId;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TimeZone;
@@ -45,9 +43,6 @@ import org.dmfs.provider.tasks.broadcast.StartAlarmBroadcastHandler;
 import org.dmfs.provider.tasks.handler.PropertyHandler;
 import org.dmfs.provider.tasks.handler.PropertyHandlerFactory;
 
-import android.accounts.Account;
-import android.accounts.AccountManager;
-import android.accounts.OnAccountsUpdateListener;
 import android.annotation.TargetApi;
 import android.content.ContentUris;
 import android.content.ContentValues;
@@ -81,7 +76,7 @@ import android.util.Log;
  * @author Tobias Reinsch <tobias@dmfs.org>
  * 
  */
-public final class TaskProvider extends SQLiteContentProvider implements OnAccountsUpdateListener
+public final class TaskProvider extends SQLiteContentProvider
 {
 
 	private static final int LISTS = 1;
@@ -128,18 +123,6 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	 * The task database helper that provides access to the actual database.
 	 */
 	private TaskDatabaseHelper mDBHelper;
-
-
-	@Override
-	public boolean onCreate()
-	{
-		boolean wasCreated = super.onCreate();
-
-		// register for account updates and check immediately
-		AccountManager.get(getContext()).addOnAccountsUpdatedListener(this, null, true);
-
-		return wasCreated;
-	}
 
 
 	/**
@@ -1540,73 +1523,6 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 
 		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Alarms.CONTENT_URI_PATH, ALARMS);
 		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Alarms.CONTENT_URI_PATH + "/#", ALARM_ID);
-	}
-
-
-	@Override
-	public void onAccountsUpdated(Account[] accounts)
-	{
-		// make a list of the accounts array
-		List<Account> accountList = Arrays.asList(accounts);
-
-		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
-		db.beginTransaction();
-
-		try
-		{
-			Cursor c = db.query(Tables.LISTS, new String[] { TaskListColumns._ID, TaskListSyncColumns.ACCOUNT_NAME, TaskListSyncColumns.ACCOUNT_TYPE }, null,
-				null, null, null, null);
-
-			// build a list of all task list ids that no longer have an account
-			List<Long> obsoleteLists = new ArrayList<Long>();
-			try
-			{
-				while (c.moveToNext())
-				{
-					String accountType = c.getString(2);
-					// mark list for removal if it is non-local and the account
-					// is not in accountList
-					if (!TaskContract.LOCAL_ACCOUNT.equals(accountType))
-					{
-						Account account = new Account(c.getString(1), accountType);
-						if (!accountList.contains(account))
-						{
-							obsoleteLists.add(c.getLong(0));
-						}
-					}
-				}
-			}
-			finally
-			{
-				c.close();
-			}
-
-			if (obsoleteLists.size() == 0)
-			{
-				// nothing to do here
-				return;
-			}
-
-			// remove all accounts in the list
-			for (Long id : obsoleteLists)
-			{
-				if (id != null)
-				{
-					db.delete(Tables.LISTS, TaskListColumns._ID + "=" + id, null);
-				}
-			}
-			db.setTransactionSuccessful();
-		}
-		finally
-		{
-			db.endTransaction();
-		}
-		// notify all observers
-		getContext().getContentResolver().notifyChange(TaskLists.CONTENT_URI, null);
-		getContext().getContentResolver().notifyChange(Tasks.CONTENT_URI, null);
-		getContext().getContentResolver().notifyChange(Instances.CONTENT_URI, null);
-
-		Utils.sendActionProviderChangedBroadCast(getContext());
 	}
 
 

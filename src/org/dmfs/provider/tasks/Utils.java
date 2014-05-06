@@ -17,10 +17,24 @@
 
 package org.dmfs.provider.tasks;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import org.dmfs.provider.tasks.TaskContract.Instances;
+import org.dmfs.provider.tasks.TaskContract.TaskListColumns;
+import org.dmfs.provider.tasks.TaskContract.TaskListSyncColumns;
+import org.dmfs.provider.tasks.TaskContract.TaskLists;
+import org.dmfs.provider.tasks.TaskContract.Tasks;
+import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
+
 import android.accounts.Account;
 import android.accounts.AccountManager;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 
 
 /**
@@ -42,7 +56,75 @@ public class Utils
 	{
 		AccountManager am = AccountManager.get(context);
 		Account[] accounts = am.getAccounts();
-		TaskProvider taskProvider = new TaskProvider();
-		taskProvider.onAccountsUpdated(accounts);
+
+		cleanUpLists(context, new TaskDatabaseHelper(context).getWritableDatabase(), accounts);
 	}
+
+
+	public static void cleanUpLists(Context context, SQLiteDatabase db, Account[] accounts)
+	{
+		// make a list of the accounts array
+		List<Account> accountList = Arrays.asList(accounts);
+
+		db.beginTransaction();
+
+		try
+		{
+			Cursor c = db.query(Tables.LISTS, new String[] { TaskListColumns._ID, TaskListSyncColumns.ACCOUNT_NAME, TaskListSyncColumns.ACCOUNT_TYPE }, null,
+				null, null, null, null);
+
+			// build a list of all task list ids that no longer have an account
+			List<Long> obsoleteLists = new ArrayList<Long>();
+			try
+			{
+				while (c.moveToNext())
+				{
+					String accountType = c.getString(2);
+					// mark list for removal if it is non-local and the account
+					// is not in accountList
+					if (!TaskContract.LOCAL_ACCOUNT.equals(accountType))
+					{
+						Account account = new Account(c.getString(1), accountType);
+						if (!accountList.contains(account))
+						{
+							obsoleteLists.add(c.getLong(0));
+						}
+					}
+				}
+			}
+			finally
+			{
+				c.close();
+			}
+
+			if (obsoleteLists.size() == 0)
+			{
+				// nothing to do here
+				return;
+			}
+
+			// remove all accounts in the list
+			for (Long id : obsoleteLists)
+			{
+				if (id != null)
+				{
+					db.delete(Tables.LISTS, TaskListColumns._ID + "=" + id, null);
+				}
+			}
+			db.setTransactionSuccessful();
+		}
+		finally
+		{
+			db.endTransaction();
+		}
+		// notify all observers
+
+		ContentResolver cr = context.getContentResolver();
+		cr.notifyChange(TaskLists.CONTENT_URI, null);
+		cr.notifyChange(Tasks.CONTENT_URI, null);
+		cr.notifyChange(Instances.CONTENT_URI, null);
+
+		Utils.sendActionProviderChangedBroadCast(context);
+	}
+
 }
