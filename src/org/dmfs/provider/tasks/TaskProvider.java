@@ -830,6 +830,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 
 				// update alarms
 				new DueAlarmBroadcastHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
+				new StartAlarmBroadcastHandler(getContext()).setUpcomingStartAlarm(mDb, System.currentTimeMillis());
 
 				break;
 			case PROPERTY_ID:

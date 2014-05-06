@@ -36,7 +36,7 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 	public static String EXTRA_TASK_START_TIME = "task_start";
 	public static String EXTRA_TASK_TITLE = "task_title";
 
-	public static String BROADCAST_START_ALARM = "org.dmfs.android.tasks.taskstart";
+	public static String BROADCAST_START_ALARM = "org.dmfs.android.tasks.TASK_START";
 
 	private static SoftReference<Context> mContext;
 	private AlarmManager mAlarmManager;
@@ -215,12 +215,12 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 		Context context = mContext.get();
 		if (context != null)
 		{
-			Intent intent = new Intent();
+			Intent intent = new Intent(BROADCAST_START_ALARM);
 			intent.setData(ContentUris.withAppendedId(TaskContract.Tasks.CONTENT_URI, taskId));
 			intent.putExtra(EXTRA_TASK_ID, taskId);
 			intent.putExtra(EXTRA_TASK_START_TIME, startDate);
 			intent.putExtra(EXTRA_TASK_TITLE, taskTitle);
-			intent.setAction(BROADCAST_START_ALARM);
+
 			context.sendBroadcast(intent);
 		}
 

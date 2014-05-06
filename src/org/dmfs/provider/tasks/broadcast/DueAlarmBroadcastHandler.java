@@ -36,7 +36,7 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 	public static String EXTRA_TASK_DUE_TIME = "task_due";
 	public static String EXTRA_TASK_TITLE = "task_title";
 
-	public static String BROADCAST_DUE_ALARM = "org.dmfs.android.tasks.taskdue";
+	public static String BROADCAST_DUE_ALARM = "org.dmfs.android.tasks.TASK_DUE";
 
 	private static SoftReference<Context> mContext;
 	private AlarmManager mAlarmManager;
@@ -215,12 +215,11 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 		Context context = mContext.get();
 		if (context != null)
 		{
-			Intent intent = new Intent();
+			Intent intent = new Intent(BROADCAST_DUE_ALARM);
 			intent.setData(ContentUris.withAppendedId(TaskContract.Tasks.CONTENT_URI, taskId));
 			intent.putExtra(EXTRA_TASK_ID, taskId);
 			intent.putExtra(EXTRA_TASK_DUE_TIME, dueDate);
 			intent.putExtra(EXTRA_TASK_TITLE, taskTitle);
-			intent.setAction(BROADCAST_DUE_ALARM);
 			context.sendBroadcast(intent);
 		}
 
