@@ -17,6 +17,8 @@
 
 package org.dmfs.provider.tasks;
 
+import android.accounts.Account;
+import android.accounts.AccountManager;
 import android.content.Context;
 import android.content.Intent;
 
@@ -35,4 +37,12 @@ public class Utils
 		context.sendBroadcast(providerChangedIntent);
 	}
 
+
+	public static void cleanUpLists(Context context)
+	{
+		AccountManager am = AccountManager.get(context);
+		Account[] accounts = am.getAccounts();
+		TaskProvider taskProvider = new TaskProvider();
+		taskProvider.onAccountsUpdated(accounts);
+	}
 }
