@@ -576,6 +576,8 @@ public final class TaskProvider extends SQLiteContentProvider
 					selection = updateSelection(selectAccount(uri), selection);
 
 					count = db.delete(Tables.LISTS, selection, selectionArgs);
+
+					updateNotifications();
 				}
 				else
 				{
@@ -610,10 +612,7 @@ public final class TaskProvider extends SQLiteContentProvider
 					values.put(CommonSyncColumns._DIRTY, true);
 					count = db.update(Tables.TASKS, values, selection, selectionArgs);
 
-					// update alarms
-					new DueAlarmBroadcastHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
-					new StartAlarmBroadcastHandler(getContext()).setUpcomingStartAlarm(mDb, System.currentTimeMillis());
-
+					updateNotifications();
 				}
 				break;
 
@@ -722,10 +721,7 @@ public final class TaskProvider extends SQLiteContentProvider
 
 				result_uri = TaskContract.Tasks.CONTENT_URI;
 
-				// update alarms
-				new DueAlarmBroadcastHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
-				new StartAlarmBroadcastHandler(getContext()).setUpcomingStartAlarm(mDb, System.currentTimeMillis());
-
+				updateNotifications();
 				break;
 
 			case PROPERTIES:
@@ -767,6 +763,7 @@ public final class TaskProvider extends SQLiteContentProvider
 
 				count = db.update(Tables.LISTS, values, selection, selectionArgs);
 				break;
+
 			case LIST_ID:
 				String newListSelection = updateSelection(selectId(uri), selection);
 
@@ -774,6 +771,7 @@ public final class TaskProvider extends SQLiteContentProvider
 
 				count = db.update(Tables.LISTS, values, newListSelection, selectionArgs);
 				break;
+
 			case TASKS:
 				// validate tasks
 				validateTaskValues(db, values, false, isSyncAdapter);
@@ -791,11 +789,9 @@ public final class TaskProvider extends SQLiteContentProvider
 				// update related instances
 				updateInstancesOfAllTasks(db, values, selection, selectionArgs);
 
-				// update alarms
-				new DueAlarmBroadcastHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
-				new StartAlarmBroadcastHandler(getContext()).setUpcomingStartAlarm(mDb, System.currentTimeMillis());
-
+				updateNotifications();
 				break;
+
 			case TASK_ID:
 				String newSelection = updateSelection(selectId(uri), selection);
 
@@ -811,11 +807,9 @@ public final class TaskProvider extends SQLiteContentProvider
 				String taskSelection = updateSelection(selectTaskId(uri), selection).toString();
 				updateInstancesOfOneTask(db, getId(uri), values, taskSelection, selectionArgs);
 
-				// update alarms
-				new DueAlarmBroadcastHandler(getContext()).setUpcomingDueAlarm(mDb, System.currentTimeMillis());
-				new StartAlarmBroadcastHandler(getContext()).setUpcomingStartAlarm(mDb, System.currentTimeMillis());
-
+				updateNotifications();
 				break;
+
 			case PROPERTY_ID:
 				if (!values.containsKey(Properties.PROPERTY_ID))
 				{
@@ -883,6 +877,18 @@ public final class TaskProvider extends SQLiteContentProvider
 		}
 
 		return count;
+	}
+
+
+	/**
+	 * Update task due and task start notifications.
+	 */
+	private void updateNotifications()
+	{
+		// update alarms
+		Context context = getContext();
+		DueAlarmBroadcastHandler.setUpcomingDueAlarm(context, mDb, System.currentTimeMillis());
+		StartAlarmBroadcastHandler.setUpcomingStartAlarm(context, mDb, System.currentTimeMillis());
 	}
 
 
@@ -1541,9 +1547,16 @@ public final class TaskProvider extends SQLiteContentProvider
 		{
 			if (mDBHelper == null)
 			{
-				mDBHelper = new TaskDatabaseHelper(context);
+				mDBHelper = getDatabaseHelperStatic(context);
 			}
 			return mDBHelper;
 		}
 	}
+
+
+	public static TaskDatabaseHelper getDatabaseHelperStatic(Context context)
+	{
+		return new TaskDatabaseHelper(context);
+	}
+
 }
