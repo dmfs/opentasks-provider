@@ -22,9 +22,7 @@ import org.dmfs.provider.tasks.TaskContract.Property.Alarm;
 import org.dmfs.provider.tasks.TaskContract.TaskLists;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 
-import android.accounts.Account;
 import android.content.Context;
-import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.graphics.Color;
@@ -484,75 +482,6 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		buffer.append(");");
 
 		return buffer.toString();
-
-	}
-
-
-	/**
-	 * Deletes task lists from the database which belong to account which aren't on the device anymore.
-	 * 
-	 * @param db
-	 *            The writable {@link SQLiteDatabase}.
-	 * @param existingAccounts
-	 *            The array of {@link Account}s on the device.
-	 * @return The number of deleted lists.
-	 */
-	public int cleanLists(SQLiteDatabase db, Account[] existingAccounts)
-	{
-		// check for the accounts in our database
-		Cursor accountCursor = db.query(Tables.LISTS, new String[] { TaskLists._ID, TaskLists.ACCOUNT_NAME, TaskLists.ACCOUNT_TYPE }, null, null,
-			TaskLists.ACCOUNT_NAME + ", " + TaskLists.ACCOUNT_TYPE, null, null);
-		int count = accountCursor.getCount();
-
-		Account[] localAccounts = new Account[count];
-		int i = 0;
-		while (!accountCursor.isAfterLast())
-		{
-			localAccounts[i++] = new Account(accountCursor.getString(1), accountCursor.getString(2));
-			accountCursor.moveToNext();
-		}
-		accountCursor.close();
-
-		// clean database for each old account
-		for (Account account : localAccounts)
-		{
-			// skip local accounts
-			if (!account.type.equals(TaskContract.LOCAL_ACCOUNT))
-			{
-				boolean found = false;
-				for (Account existingAccount : existingAccounts)
-				{
-					if (existingAccount.name.equals(account.name) && existingAccount.type.equals(account.type))
-					{
-						found = true;
-						break;
-					}
-				}
-				if (!found)
-				{
-					return deleteLists(db, account);
-				}
-			}
-		}
-
-		return 0;
-	}
-
-
-	/**
-	 * Deletes task lists from the database that belongs to the {@link Account}.
-	 * 
-	 * @param db
-	 *            The writable {@link SQLiteDatabase}.
-	 * @param account
-	 *            The {@link Account}.
-	 * @return The number of deleted lists.
-	 */
-	private int deleteLists(SQLiteDatabase db, Account account)
-	{
-		// delete lists
-		return db.delete(Tables.LISTS, String.format("(%s=? AND %s=?)", TaskLists.ACCOUNT_NAME, TaskLists.ACCOUNT_NAME), new String[] { account.name,
-			account.type });
 
 	}
 
