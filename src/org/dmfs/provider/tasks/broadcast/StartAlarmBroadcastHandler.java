@@ -148,7 +148,7 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 				// Set the next alarm
 				setUpcomingStartAlarm(context, db, nextStartTime);
 			}
-			else if (intent.getAction().equals("android.intent.action.BOOT_COMPLETED"))
+			else if (intent.getAction().equals(Intent.ACTION_BOOT_COMPLETED))
 			{
 				// device booted -> set upcoming alarm
 				setUpcomingStartAlarm(context, db, System.currentTimeMillis());

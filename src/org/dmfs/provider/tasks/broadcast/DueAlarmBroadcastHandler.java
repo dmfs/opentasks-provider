@@ -149,7 +149,7 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 				// Set the next alarm
 				setUpcomingDueAlarm(context, db, nextDueTime);
 			}
-			else if (intent.getAction().equals("android.intent.action.BOOT_COMPLETED"))
+			else if (intent.getAction().equals(Intent.ACTION_BOOT_COMPLETED))
 			{
 				// device booted -> set upcoming alarm
 				setUpcomingDueAlarm(context, db, System.currentTimeMillis());
