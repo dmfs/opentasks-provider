@@ -95,7 +95,7 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 	{
 		// search for next upcoming instance which are open
 		String[] projection = new String[] { Instances.TASK_ID, Instances.INSTANCE_START, Tasks.TITLE };
-		String selection = time + " <= " + Instances.INSTANCE_START + " AND " + Instances.IS_CLOSED + " = 0";
+		String selection = time + " <= " + Instances.INSTANCE_START + " AND " + Instances.IS_CLOSED + " = 0 AND " + Tasks._DELETED + "=0";
 		Cursor cursor = db.query(Tables.INSTANCE_VIEW, projection, selection, null, null, null, Instances.INSTANCE_START, "1");
 
 		try
@@ -129,7 +129,7 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 				long currentStartTime = intent.getExtras().getLong(EXTRA_TASK_START_TIME);
 				long nextStartTime = currentStartTime + 1000;
 				String selection = nextStartTime + " > " + Instances.INSTANCE_START + " AND " + currentStartTime + " <= " + Instances.INSTANCE_START + " AND "
-					+ Instances.IS_CLOSED + " = 0";
+					+ Instances.IS_CLOSED + " = 0 AND " + Tasks._DELETED + "=0";
 				Cursor cursor = db.query(Tables.INSTANCE_VIEW, PROJECTION, selection, null, null, null, Instances.INSTANCE_START);
 
 				try

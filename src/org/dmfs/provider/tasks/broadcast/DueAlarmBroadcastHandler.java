@@ -96,7 +96,7 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 	{
 		// search for next upcoming instance which are open
 		String[] projection = new String[] { Instances.TASK_ID, Instances.INSTANCE_DUE, Tasks.TITLE };
-		String selection = time + " <= " + Instances.INSTANCE_DUE + " AND " + Instances.IS_CLOSED + " = 0";
+		String selection = time + " <= " + Instances.INSTANCE_DUE + " AND " + Instances.IS_CLOSED + " = 0 AND " + Tasks._DELETED + "=0";
 		Cursor cursor = db.query(Tables.INSTANCE_VIEW, projection, selection, null, null, null, Instances.INSTANCE_DUE, "1");
 
 		try
@@ -130,7 +130,7 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 				long currentDueTime = intent.getExtras().getLong(EXTRA_TASK_DUE_TIME);
 				long nextDueTime = currentDueTime + 1000;
 				String selection = nextDueTime + " > " + Instances.INSTANCE_DUE + " AND " + currentDueTime + " <= " + Instances.INSTANCE_DUE + " AND "
-					+ Instances.IS_CLOSED + " = 0";
+					+ Instances.IS_CLOSED + " = 0 AND " + Tasks._DELETED + "=0";
 				Cursor cursor = db.query(Tables.INSTANCE_VIEW, PROJECTION, selection, null, null, null, Instances.INSTANCE_DUE);
 
 				try
