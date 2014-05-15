@@ -1559,4 +1559,10 @@ public final class TaskProvider extends SQLiteContentProvider
 		return new TaskDatabaseHelper(context);
 	}
 
+
+	@Override
+	protected boolean syncToNetwork(Uri uri)
+	{
+		return true;
+	}
 }
