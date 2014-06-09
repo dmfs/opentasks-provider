@@ -1,5 +1,6 @@
 package org.dmfs.provider.tasks.broadcast;
 
+import org.dmfs.provider.tasks.R;
 import org.dmfs.provider.tasks.Utils;
 
 import android.content.BroadcastReceiver;
@@ -20,6 +21,6 @@ public class AccountsChangeBroadcastReceiver extends BroadcastReceiver
 	public void onReceive(Context context, Intent intent)
 	{
 		// check for deleted accounts and clean associated lists
-		Utils.cleanUpLists(context);
+		Utils.cleanUpLists(context, context.getString(R.string.org_dmfs_tasks_authority));
 	}
 }

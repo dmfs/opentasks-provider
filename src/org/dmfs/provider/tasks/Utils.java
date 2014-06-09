@@ -45,23 +45,23 @@ import android.database.sqlite.SQLiteDatabase;
  */
 public class Utils
 {
-	public static void sendActionProviderChangedBroadCast(Context context)
+	public static void sendActionProviderChangedBroadCast(Context context, String authority)
 	{
-		Intent providerChangedIntent = new Intent(Intent.ACTION_PROVIDER_CHANGED, TaskContract.CONTENT_URI);
+		Intent providerChangedIntent = new Intent(Intent.ACTION_PROVIDER_CHANGED, TaskContract.getContentUri(authority));
 		context.sendBroadcast(providerChangedIntent);
 	}
 
 
-	public static void cleanUpLists(Context context)
+	public static void cleanUpLists(Context context, String authority)
 	{
 		AccountManager am = AccountManager.get(context);
 		Account[] accounts = am.getAccounts();
 
-		cleanUpLists(context, new TaskDatabaseHelper(context).getWritableDatabase(), accounts);
+		cleanUpLists(context, new TaskDatabaseHelper(context).getWritableDatabase(), accounts, authority);
 	}
 
 
-	public static void cleanUpLists(Context context, SQLiteDatabase db, Account[] accounts)
+	public static void cleanUpLists(Context context, SQLiteDatabase db, Account[] accounts, String authority)
 	{
 		// make a list of the accounts array
 		List<Account> accountList = Arrays.asList(accounts);
@@ -120,11 +120,11 @@ public class Utils
 		// notify all observers
 
 		ContentResolver cr = context.getContentResolver();
-		cr.notifyChange(TaskLists.CONTENT_URI, null);
-		cr.notifyChange(Tasks.CONTENT_URI, null);
-		cr.notifyChange(Instances.CONTENT_URI, null);
+		cr.notifyChange(TaskLists.getContentUri(authority), null);
+		cr.notifyChange(Tasks.getContentUri(authority), null);
+		cr.notifyChange(Instances.getContentUri(authority), null);
 
-		Utils.sendActionProviderChangedBroadCast(context);
+		Utils.sendActionProviderChangedBroadCast(context, authority);
 	}
 
 }

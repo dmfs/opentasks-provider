@@ -1,5 +1,6 @@
 package org.dmfs.provider.tasks.broadcast;
 
+import org.dmfs.provider.tasks.R;
 import org.dmfs.provider.tasks.TaskContract;
 import org.dmfs.provider.tasks.TaskContract.Instances;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
@@ -181,7 +182,7 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 	private static void sendTaskDueAlarmBroadcast(Context context, long taskId, long dueDate, String taskTitle)
 	{
 		Intent intent = new Intent(BROADCAST_DUE_ALARM);
-		intent.setData(ContentUris.withAppendedId(TaskContract.Tasks.CONTENT_URI, taskId));
+		intent.setData(ContentUris.withAppendedId(TaskContract.Tasks.getContentUri(context.getString(R.string.org_dmfs_tasks_authority)), taskId));
 		intent.putExtra(EXTRA_TASK_ID, taskId);
 		intent.putExtra(EXTRA_TASK_DUE_TIME, dueDate);
 		intent.putExtra(EXTRA_TASK_TITLE, taskTitle);

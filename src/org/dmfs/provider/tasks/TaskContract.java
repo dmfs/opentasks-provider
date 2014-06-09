@@ -17,6 +17,9 @@
 
 package org.dmfs.provider.tasks;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import android.content.ContentResolver;
 import android.net.Uri;
 
@@ -42,15 +45,7 @@ import android.net.Uri;
 public final class TaskContract
 {
 
-	/**
-	 * Task provider authority.
-	 */
-	public static final String AUTHORITY = "org.dmfs.tasks";
-
-	/**
-	 * Base content URI.
-	 */
-	public static final Uri CONTENT_URI = Uri.parse("content://" + AUTHORITY);
+	private static Map<String, UriFactory> sUriFactories = new HashMap<String, UriFactory>(4);
 
 	/**
 	 * URI parameter to signal that the caller is a sync adapter.
@@ -83,6 +78,19 @@ public final class TaskContract
 	 */
 	private TaskContract()
 	{
+	}
+
+
+	/**
+	 * Get the base content {@link Uri} using the given authority.
+	 * 
+	 * @param authority
+	 *            The authority.
+	 * @return A {@link Uri}.
+	 */
+	public final static Uri getContentUri(String authority)
+	{
+		return getUriFactory(authority).getUri();
 	}
 
 	/**
@@ -313,13 +321,7 @@ public final class TaskContract
 	 */
 	public static final class TaskLists implements TaskListColumns, TaskListSyncColumns, CommonSyncColumns
 	{
-		public static final String CONTENT_URI_PATH = "tasklists";
-
-		public static final Uri CONTENT_URI = Uri.parse("content://" + AUTHORITY + "/" + CONTENT_URI_PATH);
-
-		public static final String CONTENT_ITEM_TYPE = ContentResolver.CURSOR_ITEM_BASE_TYPE + "/" + AUTHORITY + "." + CONTENT_URI_PATH;
-
-		public static final String CONTENT_TYPE = ContentResolver.CURSOR_DIR_BASE_TYPE + "/" + AUTHORITY + "." + CONTENT_URI_PATH;
+		static final String CONTENT_URI_PATH = "tasklists";
 
 		/**
 		 * The default sort order.
@@ -331,6 +333,19 @@ public final class TaskContract
 		 */
 		public static final String[] SYNC_ADAPTER_COLUMNS = new String[] { ACCESS_LEVEL, _DIRTY, OWNER, SYNC1, SYNC2, SYNC3, SYNC4, SYNC5, SYNC6, SYNC7, SYNC8,
 			_SYNC_ID, SYNC_VERSION, };
+
+
+		/**
+		 * Get the task list content {@link Uri} using the given authority.
+		 * 
+		 * @param authority
+		 *            The authority.
+		 * @return A {@link Uri}.
+		 */
+		public final static Uri getContentUri(String authority)
+		{
+			return getUriFactory(authority).getUri(CONTENT_URI_PATH);
+		}
 
 	}
 
@@ -770,18 +785,26 @@ public final class TaskContract
 		 */
 		public static final String VISIBLE = "visible";
 
-		public static final String CONTENT_URI_PATH = "tasks";
-
-		public static final Uri CONTENT_URI = Uri.parse("content://" + AUTHORITY + "/" + CONTENT_URI_PATH);
-
-		public static final String CONTENT_ITEM_TYPE = ContentResolver.CURSOR_ITEM_BASE_TYPE + "/" + AUTHORITY + "." + CONTENT_URI_PATH;
-
-		public static final String CONTENT_TYPE = ContentResolver.CURSOR_DIR_BASE_TYPE + "/" + AUTHORITY + "." + CONTENT_URI_PATH;
+		static final String CONTENT_URI_PATH = "tasks";
 
 		public static final String DEFAULT_SORT_ORDER = DUE;
 
 		public static final String[] SYNC_ADAPTER_COLUMNS = new String[] { _DIRTY, SYNC1, SYNC2, SYNC3, SYNC4, SYNC5, SYNC6, SYNC7, SYNC8, _SYNC_ID,
 			SYNC_VERSION, };
+
+
+		/**
+		 * Get the tasks content {@link Uri} using the given authority.
+		 * 
+		 * @param authority
+		 *            The authority.
+		 * @return A {@link Uri}.
+		 */
+		public final static Uri getContentUri(String authority)
+		{
+			return getUriFactory(authority).getUri(CONTENT_URI_PATH);
+		}
+
 	}
 
 	/**
@@ -944,23 +967,24 @@ public final class TaskContract
 		 */
 		public static final String VISIBLE = "visible";
 
-		public static final String CONTENT_URI_PATH = "instances";
-
-		public static final Uri CONTENT_URI = Uri.parse("content://" + AUTHORITY + "/" + CONTENT_URI_PATH);
-
-		public static final String CONTENT_TYPE = ContentResolver.CURSOR_DIR_BASE_TYPE + "/" + AUTHORITY + "." + CONTENT_URI_PATH;
+		static final String CONTENT_URI_PATH = "instances";
 
 		public static final String DEFAULT_SORT_ORDER = INSTANCE_DUE_SORTING;
 
-	}
 
-	/*
-	 * ==================================================================================
-	 * 
-	 * Everything below this line is not used yet and subject to change. Don't use it.
-	 * 
-	 * ==================================================================================
-	 */
+		/**
+		 * Get the instances content {@link Uri} using the given authority.
+		 * 
+		 * @param authority
+		 *            The authority.
+		 * @return A {@link Uri}.
+		 */
+		public final static Uri getContentUri(String authority)
+		{
+			return getUriFactory(authority).getUri(CONTENT_URI_PATH);
+		}
+
+	}
 
 	/**
 	 * Available values in Categories.
@@ -986,11 +1010,22 @@ public final class TaskContract
 	public static final class Categories implements CategoriesColumns
 	{
 
-		public static final String CONTENT_URI_PATH = "categories";
-
-		public static final Uri CONTENT_URI = Uri.parse("content://" + AUTHORITY + "/" + CONTENT_URI_PATH);
+		static final String CONTENT_URI_PATH = "categories";
 
 		public static final String DEFAULT_SORT_ORDER = NAME;
+
+
+		/**
+		 * Get the categories content {@link Uri} using the given authority.
+		 * 
+		 * @param authority
+		 *            The authority.
+		 * @return A {@link Uri}.
+		 */
+		public final static Uri getContentUri(String authority)
+		{
+			return getUriFactory(authority).getUri(CONTENT_URI_PATH);
+		}
 
 	}
 
@@ -1006,9 +1041,20 @@ public final class TaskContract
 	public static final class Alarms implements AlarmsColumns
 	{
 
-		public static final String CONTENT_URI_PATH = "alarms";
+		static final String CONTENT_URI_PATH = "alarms";
 
-		public static final Uri CONTENT_URI = Uri.parse("content://" + AUTHORITY + "/" + CONTENT_URI_PATH);
+
+		/**
+		 * Get the alarms content {@link Uri} using the given authority.
+		 * 
+		 * @param authority
+		 *            The authority.
+		 * @return A {@link Uri}.
+		 */
+		public final static Uri getContentUri(String authority)
+		{
+			return getUriFactory(authority).getUri(CONTENT_URI_PATH);
+		}
 
 	}
 
@@ -1078,11 +1124,22 @@ public final class TaskContract
 	public static final class Properties implements PropertySyncColumns, PropertyColumns
 	{
 
-		public static final String CONTENT_URI_PATH = "properties";
-
-		public static final Uri CONTENT_URI = Uri.parse("content://" + AUTHORITY + "/" + CONTENT_URI_PATH);
+		static final String CONTENT_URI_PATH = "properties";
 
 		public static final String DEFAULT_SORT_ORDER = DATA0;
+
+
+		/**
+		 * Get the properties content {@link Uri} using the given authority.
+		 * 
+		 * @param authority
+		 *            The authority.
+		 * @return A {@link Uri}.
+		 */
+		public final static Uri getContentUri(String authority)
+		{
+			return getUriFactory(authority).getUri(CONTENT_URI_PATH);
+		}
 
 	}
 
@@ -1295,4 +1352,22 @@ public final class TaskContract
 
 	}
 
+
+	private static synchronized UriFactory getUriFactory(String authority)
+	{
+		UriFactory uriFactory = sUriFactories.get(authority);
+		if (uriFactory == null)
+		{
+			uriFactory = new UriFactory(authority);
+			uriFactory.addUri(TaskLists.CONTENT_URI_PATH);
+			uriFactory.addUri(Tasks.CONTENT_URI_PATH);
+			uriFactory.addUri(Instances.CONTENT_URI_PATH);
+			uriFactory.addUri(Categories.CONTENT_URI_PATH);
+			uriFactory.addUri(Alarms.CONTENT_URI_PATH);
+			uriFactory.addUri(Properties.CONTENT_URI_PATH);
+			sUriFactories.put(authority, uriFactory);
+
+		}
+		return uriFactory;
+	}
 }

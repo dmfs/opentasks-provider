@@ -44,6 +44,7 @@ import org.dmfs.provider.tasks.handler.PropertyHandler;
 import org.dmfs.provider.tasks.handler.PropertyHandlerFactory;
 
 import android.annotation.TargetApi;
+import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
@@ -92,8 +93,6 @@ public final class TaskProvider extends SQLiteContentProvider
 	private static final int ALARMS = 1005;
 	private static final int ALARM_ID = 1006;
 
-	private static final UriMatcher uriMatcher;
-
 	private static final String[] TASK_ID_PROJECTION = { Tasks._ID };
 	private static final String[] TASK_SYNC_ID_PROJECTION = { Tasks._SYNC_ID };
 	private static final String[] TASKLIST_ID_PROJECTION = { TaskLists._ID };
@@ -123,6 +122,42 @@ public final class TaskProvider extends SQLiteContentProvider
 	 * The task database helper that provides access to the actual database.
 	 */
 	private TaskDatabaseHelper mDBHelper;
+
+	/**
+	 * Our current authority.
+	 */
+	private String mAuthority;
+
+	private UriMatcher mUriMatcher;
+
+
+	@Override
+	public boolean onCreate()
+	{
+		boolean result = super.onCreate();
+		mAuthority = getContext().getString(R.string.org_dmfs_tasks_authority);
+
+		mUriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
+		mUriMatcher.addURI(mAuthority, TaskContract.TaskLists.CONTENT_URI_PATH, LISTS);
+
+		mUriMatcher.addURI(mAuthority, TaskContract.TaskLists.CONTENT_URI_PATH + "/#", LIST_ID);
+
+		mUriMatcher.addURI(mAuthority, TaskContract.Tasks.CONTENT_URI_PATH, TASKS);
+		mUriMatcher.addURI(mAuthority, TaskContract.Tasks.CONTENT_URI_PATH + "/#", TASK_ID);
+
+		mUriMatcher.addURI(mAuthority, TaskContract.Instances.CONTENT_URI_PATH, INSTANCES);
+		mUriMatcher.addURI(mAuthority, TaskContract.Instances.CONTENT_URI_PATH + "/#", INSTANCE_ID);
+
+		mUriMatcher.addURI(mAuthority, TaskContract.Properties.CONTENT_URI_PATH, PROPERTIES);
+		mUriMatcher.addURI(mAuthority, TaskContract.Properties.CONTENT_URI_PATH + "/#", PROPERTY_ID);
+
+		mUriMatcher.addURI(mAuthority, TaskContract.Categories.CONTENT_URI_PATH, CATEGORIES);
+		mUriMatcher.addURI(mAuthority, TaskContract.Categories.CONTENT_URI_PATH + "/#", CATEGORY_ID);
+
+		mUriMatcher.addURI(mAuthority, TaskContract.Alarms.CONTENT_URI_PATH, ALARMS);
+		mUriMatcher.addURI(mAuthority, TaskContract.Alarms.CONTENT_URI_PATH + "/#", ALARM_ID);
+		return result;
+	}
 
 
 	/**
@@ -404,7 +439,7 @@ public final class TaskProvider extends SQLiteContentProvider
 		sqlBuilder.appendWhere(" 1=1 ");
 		boolean isSyncAdapter = isCallerSyncAdapter(uri);
 
-		switch (uriMatcher.match(uri))
+		switch (mUriMatcher.match(uri))
 		{
 			case LISTS:
 				// add account to selection if any
@@ -556,7 +591,7 @@ public final class TaskProvider extends SQLiteContentProvider
 		String accountName = getAccountName(uri);
 		String accountType = getAccountType(uri);
 
-		switch (uriMatcher.match(uri))
+		switch (mUriMatcher.match(uri))
 		{
 		/*
 		 * Deleting task lists is only allowed to sync adapters. They must provide ACCOUNT_NAME and ACCOUNT_TYPE.
@@ -658,8 +693,8 @@ public final class TaskProvider extends SQLiteContentProvider
 		if (count > 0)
 		{
 			postNotifyUri(uri);
-			postNotifyUri(Instances.CONTENT_URI);
-			postNotifyUri(Tasks.CONTENT_URI);
+			postNotifyUri(Instances.getContentUri(mAuthority));
+			postNotifyUri(Tasks.getContentUri(mAuthority));
 		}
 		return count;
 	}
@@ -675,7 +710,7 @@ public final class TaskProvider extends SQLiteContentProvider
 		String accountName = getAccountName(uri);
 		String accountType = getAccountType(uri);
 
-		switch (uriMatcher.match(uri))
+		switch (mUriMatcher.match(uri))
 		{
 			case LISTS:
 				if (isSyncAdapter)
@@ -691,7 +726,7 @@ public final class TaskProvider extends SQLiteContentProvider
 					values.put(TaskContract.ACCOUNT_NAME, accountName);
 					values.put(TaskContract.ACCOUNT_TYPE, accountType);
 					rowId = db.insert(Tables.LISTS, "", values);
-					result_uri = TaskContract.TaskLists.CONTENT_URI;
+					result_uri = TaskContract.TaskLists.getContentUri(mAuthority);
 				}
 				else
 				{
@@ -719,7 +754,7 @@ public final class TaskProvider extends SQLiteContentProvider
 				// add entries to Instances
 				createInstances(db, uri, values, rowId);
 
-				result_uri = TaskContract.Tasks.CONTENT_URI;
+				result_uri = TaskContract.Tasks.getContentUri(mAuthority);
 
 				updateNotifications();
 				break;
@@ -727,11 +762,11 @@ public final class TaskProvider extends SQLiteContentProvider
 			case PROPERTIES:
 				PropertyHandler handler = PropertyHandlerFactory.create(values.getAsString(Properties.MIMETYPE));
 				rowId = handler.insert(db, values, isSyncAdapter);
-				result_uri = TaskContract.Properties.CONTENT_URI;
+				result_uri = TaskContract.Properties.getContentUri(mAuthority);
 				if (rowId > 0)
 				{
-					postNotifyUri(Tasks.CONTENT_URI);
-					postNotifyUri(Instances.CONTENT_URI);
+					postNotifyUri(Tasks.getContentUri(mAuthority));
+					postNotifyUri(Instances.getContentUri(mAuthority));
 				}
 				break;
 
@@ -756,7 +791,7 @@ public final class TaskProvider extends SQLiteContentProvider
 	{
 		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
 		int count = 0;
-		switch (uriMatcher.match(uri))
+		switch (mUriMatcher.match(uri))
 		{
 			case LISTS:
 				validateTaskListValues(values, false, isSyncAdapter);
@@ -829,8 +864,8 @@ public final class TaskProvider extends SQLiteContentProvider
 						count = handler.update(db, values, newPropertySelection, selectionArgs, isSyncAdapter);
 						if (count > 0)
 						{
-							postNotifyUri(Tasks.CONTENT_URI);
-							postNotifyUri(Instances.CONTENT_URI);
+							postNotifyUri(Tasks.getContentUri(mAuthority));
+							postNotifyUri(Instances.getContentUri(mAuthority));
 						}
 					}
 				}
@@ -997,7 +1032,7 @@ public final class TaskProvider extends SQLiteContentProvider
 		}
 
 		db.insert(Tables.INSTANCES, null, instanceValues);
-		postNotifyUri(Instances.CONTENT_URI);
+		postNotifyUri(Instances.getContentUri(mAuthority));
 	}
 
 
@@ -1105,7 +1140,7 @@ public final class TaskProvider extends SQLiteContentProvider
 		}
 
 		db.update(Tables.INSTANCES, instanceValues, selection, selectionArgs);
-		postNotifyUri(Instances.CONTENT_URI);
+		postNotifyUri(Instances.getContentUri(mAuthority));
 	}
 
 
@@ -1491,18 +1526,21 @@ public final class TaskProvider extends SQLiteContentProvider
 	@Override
 	public String getType(Uri uri)
 	{
-		switch (uriMatcher.match(uri))
+		/**
+		 * TODO: create the types in advance
+		 */
+		switch (mUriMatcher.match(uri))
 		{
 			case LISTS:
-				return TaskLists.CONTENT_TYPE;
+				return ContentResolver.CURSOR_DIR_BASE_TYPE + "/" + mAuthority + "." + TaskLists.CONTENT_URI_PATH;
 			case LIST_ID:
-				return TaskLists.CONTENT_ITEM_TYPE;
+				return ContentResolver.CURSOR_ITEM_BASE_TYPE + "/" + mAuthority + "." + TaskLists.CONTENT_URI_PATH;
 			case TASKS:
-				return Tasks.CONTENT_TYPE;
+				return ContentResolver.CURSOR_DIR_BASE_TYPE + "/" + mAuthority + "." + Tasks.CONTENT_URI_PATH;
 			case TASK_ID:
-				return Tasks.CONTENT_ITEM_TYPE;
+				return ContentResolver.CURSOR_ITEM_BASE_TYPE + "/" + mAuthority + "." + Tasks.CONTENT_URI_PATH;
 			case INSTANCES:
-				return Instances.CONTENT_TYPE;
+				return ContentResolver.CURSOR_DIR_BASE_TYPE + "/" + mAuthority + "." + Instances.CONTENT_URI_PATH;
 			default:
 				throw new IllegalArgumentException("Unsupported URI: " + uri);
 		}
@@ -1510,25 +1548,7 @@ public final class TaskProvider extends SQLiteContentProvider
 
 	static
 	{
-		uriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
-		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.TaskLists.CONTENT_URI_PATH, LISTS);
 
-		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.TaskLists.CONTENT_URI_PATH + "/#", LIST_ID);
-
-		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Tasks.CONTENT_URI_PATH, TASKS);
-		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Tasks.CONTENT_URI_PATH + "/#", TASK_ID);
-
-		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Instances.CONTENT_URI_PATH, INSTANCES);
-		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Instances.CONTENT_URI_PATH + "/#", INSTANCE_ID);
-
-		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Properties.CONTENT_URI_PATH, PROPERTIES);
-		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Properties.CONTENT_URI_PATH + "/#", PROPERTY_ID);
-
-		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Categories.CONTENT_URI_PATH, CATEGORIES);
-		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Categories.CONTENT_URI_PATH + "/#", CATEGORY_ID);
-
-		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Alarms.CONTENT_URI_PATH, ALARMS);
-		uriMatcher.addURI(TaskContract.AUTHORITY, TaskContract.Alarms.CONTENT_URI_PATH + "/#", ALARM_ID);
 	}
 
 
@@ -1536,7 +1556,7 @@ public final class TaskProvider extends SQLiteContentProvider
 	protected void onEndTransaction(boolean callerIsSyncAdapter)
 	{
 		super.onEndTransaction(callerIsSyncAdapter);
-		Utils.sendActionProviderChangedBroadCast(getContext());
+		Utils.sendActionProviderChangedBroadCast(getContext(), mAuthority);
 	};
 
 
