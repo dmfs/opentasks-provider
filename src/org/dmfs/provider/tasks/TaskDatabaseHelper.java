@@ -93,12 +93,6 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		public static final String CATEGORY_ID = "category_id";
 	}
 
-
-	TaskDatabaseHelper(Context context)
-	{
-		super(context, DATABASE_NAME, null, DATABASE_VERSION);
-	}
-
 	// @formatter:off
 	
 	/**
@@ -485,6 +479,15 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 
 	}
 
+	private final boolean mCreateLocalList;
+
+
+	TaskDatabaseHelper(Context context)
+	{
+		super(context, DATABASE_NAME, null, DATABASE_VERSION);
+		mCreateLocalList = context.getResources().getBoolean(R.bool.org_dmfs_allow_local_lists);
+	}
+
 
 	/**
 	 * Creates the tables, views, triggers and indices.
@@ -562,10 +565,13 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		db.execSQL(SQL_CREATE_ALARM_COUNT_UPDATE_TRIGGER);
 		db.execSQL(SQL_CREATE_ALARM_COUNT_DELETE_TRIGGER);
 
-		// insert initial list
-		db.execSQL("insert into " + Tables.LISTS + " (" + TaskLists.ACCOUNT_TYPE + ", " + TaskLists.ACCOUNT_NAME + ", " + TaskLists.LIST_NAME + ", "
-			+ TaskLists.LIST_COLOR + ", " + TaskLists.VISIBLE + ", " + TaskLists.SYNC_ENABLED + ", " + TaskLists.OWNER + ") VALUES (?,?,?,?,?,?,?) ",
-			new Object[] { TaskContract.LOCAL_ACCOUNT, "Local", "Task list", Color.rgb(0, 0, 255), 1, 1, "" });
+		if (mCreateLocalList)
+		{
+			// insert initial list
+			db.execSQL("insert into " + Tables.LISTS + " (" + TaskLists.ACCOUNT_TYPE + ", " + TaskLists.ACCOUNT_NAME + ", " + TaskLists.LIST_NAME + ", "
+				+ TaskLists.LIST_COLOR + ", " + TaskLists.VISIBLE + ", " + TaskLists.SYNC_ENABLED + ", " + TaskLists.OWNER + ") VALUES (?,?,?,?,?,?,?) ",
+				new Object[] { TaskContract.LOCAL_ACCOUNT, "Local", "Task list", Color.rgb(0, 0, 255), 1, 1, "" });
+		}
 	}
 
 

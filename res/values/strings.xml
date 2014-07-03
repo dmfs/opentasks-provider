@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">task-provider</string>
-    
+
     <string name="org_dmfs_tasks_authority">org.dmfs.tasks</string>
+
 </resources>

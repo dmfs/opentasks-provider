@@ -1,0 +1,5 @@
+<resources>
+
+    <bool name="org_dmfs_allow_local_lists">true</bool>
+
+</resources>
