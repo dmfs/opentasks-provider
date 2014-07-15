@@ -754,6 +754,9 @@ public final class TaskProvider extends SQLiteContentProvider
 				// add entries to Instances
 				createInstances(db, uri, values, rowId);
 
+				// insert FTS entries
+				FTSDatabaseHelper.insertTaskFTSEntries(db, values, rowId);
+
 				result_uri = TaskContract.Tasks.getContentUri(mAuthority);
 
 				updateNotifications();
@@ -765,6 +768,7 @@ public final class TaskProvider extends SQLiteContentProvider
 				result_uri = TaskContract.Properties.getContentUri(mAuthority);
 				if (rowId > 0)
 				{
+					FTSDatabaseHelper.insertPropertyFTSEntry(db, values, rowId);
 					postNotifyUri(Tasks.getContentUri(mAuthority));
 					postNotifyUri(Instances.getContentUri(mAuthority));
 				}
@@ -864,6 +868,7 @@ public final class TaskProvider extends SQLiteContentProvider
 						count = handler.update(db, values, newPropertySelection, selectionArgs, isSyncAdapter);
 						if (count > 0)
 						{
+							FTSDatabaseHelper.updatePropertyFTSEntry(db, values, handler);
 							postNotifyUri(Tasks.getContentUri(mAuthority));
 							postNotifyUri(Instances.getContentUri(mAuthority));
 						}
@@ -1140,6 +1145,10 @@ public final class TaskProvider extends SQLiteContentProvider
 		}
 
 		db.update(Tables.INSTANCES, instanceValues, selection, selectionArgs);
+
+		// update FTS entries
+		FTSDatabaseHelper.updateTaskFTSEntries(db, task_id, values);
+
 		postNotifyUri(Instances.getContentUri(mAuthority));
 	}
 

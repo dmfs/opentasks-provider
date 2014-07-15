@@ -497,6 +497,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	@Override
 	public void onCreate(SQLiteDatabase db)
 	{
+
 		// create task list table
 		db.execSQL(SQL_CREATE_LISTS_TABLE);
 
@@ -564,6 +565,9 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		db.execSQL(SQL_CREATE_ALARM_COUNT_CREATE_TRIGGER);
 		db.execSQL(SQL_CREATE_ALARM_COUNT_UPDATE_TRIGGER);
 		db.execSQL(SQL_CREATE_ALARM_COUNT_DELETE_TRIGGER);
+
+		// initialze FTS
+		FTSDatabaseHelper.onCreate(db);
 
 		if (mCreateLocalList)
 		{
@@ -655,6 +659,9 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		{
 			db.execSQL(SQL_CREATE_LISTS_CLEANUP_TRIGGER);
 		}
+
+		// upgrade FTS
+		FTSDatabaseHelper.onUpgrade(db, oldVersion, newVersion);
 
 	}
 }

@@ -1,8 +1,10 @@
 package org.dmfs.provider.tasks.handler;
 
+import org.dmfs.provider.tasks.TaskContract.Properties;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
 
 import android.content.ContentValues;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
 
@@ -94,5 +96,33 @@ public abstract class PropertyHandler
 		return db.delete(Tables.PROPERTIES, selection, selectionArgs);
 
 	}
+
+
+	/**
+	 * Method hook to insert FTS entries on database migration.
+	 * 
+	 * @param db
+	 *            The {@link SQLiteDatabase}.
+	 * @param propertyCursor
+	 *            The cursor to the {@link Properties} table, containing all columns.
+	 */
+	public void insertFTSEntry(SQLiteDatabase db, Cursor propertyCursor)
+	{
+
+	}
+
+
+	/**
+	 * Method hook to return a searchable text for the property.
+	 * 
+	 * @param values
+	 *            The {@link ContentValues} for the property.
+	 * 
+	 * @return The searchable text as {@link String}.
+	 */
+	public String getSearchableEntry(ContentValues values)
+	{
+		return null;
+	};
 
 }
