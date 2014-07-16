@@ -50,12 +50,22 @@ public class FTSDatabaseHelper
 	}
 
 	public static final String FTS_CONTENT_TABLE = "FTS_Content";
+	public static final String FTS_TASK_VIEW = "FTS_Task_View";
+	public static final String FTS_TASK_PROPERTY_VIEW = "FTS_Task_Property_View";
 
 	/**
 	 * SQL command to create the virtual fts table for full text search
 	 */
 	private final static String SQL_CREATE_SEARCH_CONTENT_TABLE = "CREATE VIRTUAL TABLE " + FTS_CONTENT_TABLE + " USING fts3 ( " + FTSContentColumns.TASK_ID
 		+ ", " + FTSContentColumns.PROPERTY_ID + ", " + FTSContentColumns.TYPE + ", " + FTSContentColumns.TEXT + ")";
+
+	private final static String SQL_CREATE_SEARCH_TASK_VIEW = "CREATE VIEW " + FTS_TASK_VIEW + " AS SELECT " + Tables.TASKS_VIEW + ".* , " + FTS_CONTENT_TABLE
+		+ "." + FTSContentColumns.TEXT + " from " + FTS_CONTENT_TABLE + " join " + Tables.TASKS_VIEW + " on (" + Tables.TASKS_VIEW + "." + Tasks._ID + "="
+		+ FTS_CONTENT_TABLE + "." + FTSContentColumns.TASK_ID + ");";
+
+	private final static String SQL_CREATE_SEARCH_TASK_PROPERTY_VIEW = "CREATE VIEW " + FTS_TASK_PROPERTY_VIEW + " AS SELECT " + Tables.TASKS_PROPERTY_VIEW
+		+ ".* , " + FTS_CONTENT_TABLE + "." + FTSContentColumns.TEXT + " from " + FTS_CONTENT_TABLE + " join " + Tables.TASKS_PROPERTY_VIEW + " on ("
+		+ Tables.TASKS_PROPERTY_VIEW + "." + Tasks._ID + "=" + FTS_CONTENT_TABLE + "." + FTSContentColumns.TASK_ID + ");";
 
 	private final static String SQL_CREATE_SEARCH_TASK_DELETE_TRIGGER = "CREATE TRIGGER search_task_delete_trigger AFTER DELETE ON " + Tables.TASKS + " BEGIN "
 		+ " DELETE FROM " + FTS_CONTENT_TABLE + " WHERE " + FTSContentColumns.TASK_ID + " =  old." + Tasks._ID + "; END";
@@ -86,9 +96,7 @@ public class FTSDatabaseHelper
 
 	public static void onCreate(SQLiteDatabase db)
 	{
-		db.execSQL(SQL_CREATE_SEARCH_CONTENT_TABLE);
-		db.execSQL(SQL_CREATE_SEARCH_TASK_DELETE_TRIGGER);
-		db.execSQL(SQL_CREATE_SEARCH_TASK_DELETE_PROPERTY_TRIGGER);
+		initializeFTS(db);
 	}
 
 
@@ -96,21 +104,35 @@ public class FTSDatabaseHelper
 	{
 		if (oldVersion < 8)
 		{
-			db.execSQL(SQL_CREATE_SEARCH_CONTENT_TABLE);
-			db.execSQL(SQL_CREATE_SEARCH_TASK_DELETE_TRIGGER);
-			db.execSQL(SQL_CREATE_SEARCH_TASK_DELETE_PROPERTY_TRIGGER);
 			initializeFTS(db);
+			initializeFTSContent(db);
 		}
 	}
 
 
 	/**
-	 * Creates the FTS content table and generates FTS entries for the existing tasks.
+	 * Creates the tables and triggers which are necessary for the FTS.
+	 * 
+	 * @param db
+	 *            The {@link SQLiteDatabase}.
+	 */
+	private static void initializeFTS(SQLiteDatabase db)
+	{
+		db.execSQL(SQL_CREATE_SEARCH_CONTENT_TABLE);
+		db.execSQL(SQL_CREATE_SEARCH_TASK_VIEW);
+		db.execSQL(SQL_CREATE_SEARCH_TASK_PROPERTY_VIEW);
+		db.execSQL(SQL_CREATE_SEARCH_TASK_DELETE_TRIGGER);
+		db.execSQL(SQL_CREATE_SEARCH_TASK_DELETE_PROPERTY_TRIGGER);
+	}
+
+
+	/**
+	 * Creates the FTS entries for the existing tasks.
 	 * 
 	 * @param db
 	 *            The writable {@link SQLiteDatabase}.
 	 */
-	private static void initializeFTS(SQLiteDatabase db)
+	private static void initializeFTSContent(SQLiteDatabase db)
 	{
 		String[] task_projection = new String[] { Tasks._ID, Tasks.TITLE, Tasks.DESCRIPTION };
 		Cursor c = db.query(Tables.TASKS_PROPERTY_VIEW, task_projection, null, null, null, null, null);
@@ -270,6 +292,13 @@ public class FTSDatabaseHelper
 			updateValues.put(FTSContentColumns.TEXT, searchableText);
 			db.update(FTS_CONTENT_TABLE, updateValues, SQL_UPDATE_PROPERTY_SELECTION, new String[] { taskId, propertyId, SearchableTypes.PROPERTY });
 		}
+
+	}
+
+
+	public static Cursor getTaskSearchCursor(SQLiteDatabase db, String searchString)
+	{
+		return db.query(FTS_TASK_VIEW, null, FTSContentColumns.TEXT + " MATCH ? ", new String[] { searchString }, Tasks._ID, null, Tasks.CREATED);
 
 	}
 }

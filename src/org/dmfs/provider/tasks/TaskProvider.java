@@ -92,6 +92,7 @@ public final class TaskProvider extends SQLiteContentProvider
 	private static final int PROPERTY_ID = 1004;
 	private static final int ALARMS = 1005;
 	private static final int ALARM_ID = 1006;
+	private static final int SEARCH = 1007;
 
 	private static final String[] TASK_ID_PROJECTION = { Tasks._ID };
 	private static final String[] TASK_SYNC_ID_PROJECTION = { Tasks._SYNC_ID };
@@ -156,6 +157,8 @@ public final class TaskProvider extends SQLiteContentProvider
 
 		mUriMatcher.addURI(mAuthority, TaskContract.Alarms.CONTENT_URI_PATH, ALARMS);
 		mUriMatcher.addURI(mAuthority, TaskContract.Alarms.CONTENT_URI_PATH + "/#", ALARM_ID);
+
+		mUriMatcher.addURI(mAuthority, TaskContract.Tasks.SEARCH_URI_PATH, SEARCH);
 		return result;
 	}
 
@@ -568,6 +571,11 @@ public final class TaskProvider extends SQLiteContentProvider
 				sqlBuilder.setTables(Tables.PROPERTIES);
 				selectId(sqlBuilder, PropertyColumns.PROPERTY_ID, uri);
 				break;
+
+			case SEARCH:
+				String searchString = uri.getQueryParameter(Tasks.SEARCH_QUERY_PARAMETER);
+				searchString = Uri.decode(searchString);
+				return FTSDatabaseHelper.getTaskSearchCursor(db, searchString);
 
 			default:
 				throw new IllegalArgumentException("Unknown URI " + uri);

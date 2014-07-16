@@ -787,6 +787,10 @@ public final class TaskContract
 
 		static final String CONTENT_URI_PATH = "tasks";
 
+		static final String SEARCH_URI_PATH = "tasks_search";
+
+		static final String SEARCH_QUERY_PARAMETER = "q";
+
 		public static final String DEFAULT_SORT_ORDER = DUE;
 
 		public static final String[] SYNC_ADAPTER_COLUMNS = new String[] { _DIRTY, SYNC1, SYNC2, SYNC3, SYNC4, SYNC5, SYNC6, SYNC7, SYNC8, _SYNC_ID,
@@ -805,6 +809,13 @@ public final class TaskContract
 			return getUriFactory(authority).getUri(CONTENT_URI_PATH);
 		}
 
+
+		public final static Uri getSearchUri(String authority, String query)
+		{
+			Uri.Builder builder = getContentUri(authority).buildUpon();
+			builder.appendQueryParameter(SEARCH_QUERY_PARAMETER, Uri.encode(query));
+			return builder.build();
+		}
 	}
 
 	/**
