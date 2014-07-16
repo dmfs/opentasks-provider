@@ -195,12 +195,12 @@ public class FTSDatabaseHelper
 		// title
 		values.put(FTSContentColumns.TYPE, SearchableTypes.TITLE);
 		values.put(FTSContentColumns.TEXT, title);
-		db.insert(SQL_CREATE_SEARCH_CONTENT_TABLE, null, values);
+		db.insert(FTS_CONTENT_TABLE, null, values);
 
 		// description
 		values.put(FTSContentColumns.TYPE, SearchableTypes.DESCRIPTION);
 		values.put(FTSContentColumns.TEXT, description);
-		db.insert(SQL_CREATE_SEARCH_CONTENT_TABLE, null, values);
+		db.insert(FTS_CONTENT_TABLE, null, values);
 
 	}
 
