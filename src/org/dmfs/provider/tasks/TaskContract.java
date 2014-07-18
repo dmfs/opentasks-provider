@@ -812,7 +812,7 @@ public final class TaskContract
 
 		public final static Uri getSearchUri(String authority, String query)
 		{
-			Uri.Builder builder = getContentUri(authority).buildUpon();
+			Uri.Builder builder = getUriFactory(authority).getUri(SEARCH_URI_PATH).buildUpon();
 			builder.appendQueryParameter(SEARCH_QUERY_PARAMETER, Uri.encode(query));
 			return builder.build();
 		}
@@ -1372,6 +1372,7 @@ public final class TaskContract
 			uriFactory = new UriFactory(authority);
 			uriFactory.addUri(TaskLists.CONTENT_URI_PATH);
 			uriFactory.addUri(Tasks.CONTENT_URI_PATH);
+			uriFactory.addUri(Tasks.SEARCH_URI_PATH);
 			uriFactory.addUri(Instances.CONTENT_URI_PATH);
 			uriFactory.addUri(Categories.CONTENT_URI_PATH);
 			uriFactory.addUri(Alarms.CONTENT_URI_PATH);

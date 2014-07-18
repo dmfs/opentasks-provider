@@ -296,9 +296,51 @@ public class FTSDatabaseHelper
 	}
 
 
-	public static Cursor getTaskSearchCursor(SQLiteDatabase db, String searchString)
+	/**
+	 * Queries the task database to get a cursor with the search results.
+	 * 
+	 * @param db
+	 *            The {@link SQLiteDatabase}.
+	 * @param searchString
+	 *            The search query string.
+	 * @param projection
+	 *            The database projection for the query.
+	 * @param selection
+	 *            The selection for the query.
+	 * @param selectionArgs
+	 *            The arguments for the query.
+	 * @param sortOrder
+	 *            The sorting order of the query.
+	 * @return A cursor of the task database with the search result.
+	 */
+	public static Cursor getTaskSearchCursor(SQLiteDatabase db, String searchString, String[] projection, String selection, String[] selectionArgs,
+		String sortOrder)
 	{
-		return db.query(FTS_TASK_VIEW, null, FTSContentColumns.TEXT + " MATCH ? ", new String[] { searchString }, Tasks._ID, null, Tasks.CREATED);
+		// selection
+		StringBuilder querySelection = new StringBuilder(FTSContentColumns.TEXT).append(" LIKE ? ");
+		if (selection != null)
+		{
+			querySelection.append(" AND ").append(selection);
+		}
 
+		// selection arguments
+		String[] queryArgs;
+		if (selectionArgs != null)
+		{
+			queryArgs = new String[selectionArgs.length + 1];
+			queryArgs[0] = searchString;
+			for (int i = 0; i < selectionArgs.length; i++)
+			{
+				String arg = selectionArgs[i];
+				queryArgs[i + 1] = arg;
+			}
+
+		}
+		else
+		{
+			queryArgs = new String[] { "%" + searchString + "%" };
+		}
+		Cursor c = db.query(FTS_TASK_VIEW, projection, querySelection.toString(), queryArgs, Tasks._ID, null, sortOrder);
+		return c;
 	}
 }

@@ -435,7 +435,6 @@ public final class TaskProvider extends SQLiteContentProvider
 	@Override
 	public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder)
 	{
-
 		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
 		SQLiteQueryBuilder sqlBuilder = new SQLiteQueryBuilder();
 		// initialize appendWhere, this allows us to append all other selections with a preceding "AND"
@@ -575,7 +574,7 @@ public final class TaskProvider extends SQLiteContentProvider
 			case SEARCH:
 				String searchString = uri.getQueryParameter(Tasks.SEARCH_QUERY_PARAMETER);
 				searchString = Uri.decode(searchString);
-				return FTSDatabaseHelper.getTaskSearchCursor(db, searchString);
+				return FTSDatabaseHelper.getTaskSearchCursor(db, searchString, projection, selection, selectionArgs, sortOrder);
 
 			default:
 				throw new IllegalArgumentException("Unknown URI " + uri);
