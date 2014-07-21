@@ -48,7 +48,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	/**
 	 * The database version.
 	 */
-	static final int DATABASE_VERSION = 7;
+	static final int DATABASE_VERSION = 8;
 
 	/**
 	 * List of all tables we provide.
