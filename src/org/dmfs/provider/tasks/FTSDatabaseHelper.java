@@ -9,6 +9,7 @@ import org.dmfs.provider.tasks.handler.PropertyHandlerFactory;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.text.TextUtils;
 
 
 /**
@@ -316,11 +317,13 @@ public class FTSDatabaseHelper
 	public static Cursor getTaskSearchCursor(SQLiteDatabase db, String searchString, String[] projection, String selection, String[] selectionArgs,
 		String sortOrder)
 	{
-		// selection
-		StringBuilder querySelection = new StringBuilder(FTSContentColumns.TEXT).append(" LIKE ? ");
-		if (selection != null)
+		if (!TextUtils.isEmpty(selection))
 		{
-			querySelection.append(" AND ").append(selection);
+			selection = " (" + selection + ") AND (fts_text MATCH ?)";
+		}
+		else
+		{
+			selection = "fts_text MATCH ?";
 		}
 
 		// selection arguments
@@ -328,19 +331,14 @@ public class FTSDatabaseHelper
 		if (selectionArgs != null)
 		{
 			queryArgs = new String[selectionArgs.length + 1];
-			queryArgs[0] = searchString;
-			for (int i = 0; i < selectionArgs.length; i++)
-			{
-				String arg = selectionArgs[i];
-				queryArgs[i + 1] = arg;
-			}
-
+			System.arraycopy(selectionArgs, 0, queryArgs, 0, selectionArgs.length);
+			queryArgs[selectionArgs.length] = searchString;
 		}
 		else
 		{
-			queryArgs = new String[] { "%" + searchString + "%" };
+			queryArgs = new String[] { searchString };
 		}
-		Cursor c = db.query(FTS_TASK_VIEW, projection, querySelection.toString(), queryArgs, Tasks._ID, null, sortOrder);
+		Cursor c = db.query(FTS_TASK_VIEW, projection, selection, queryArgs, Tasks._ID, null, sortOrder);
 		return c;
 	}
 }
