@@ -48,7 +48,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	/**
 	 * The database version.
 	 */
-	static final int DATABASE_VERSION = 7;
+	static final int DATABASE_VERSION = 8;
 
 	/**
 	 * List of all tables we provide.
@@ -654,6 +654,11 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		if (oldVersion < 7)
 		{
 			db.execSQL(SQL_CREATE_LISTS_CLEANUP_TRIGGER);
+		}
+		if (oldVersion < 8)
+		{
+			// replace priority 0 by null. We need this to sort the widget properly. Since 0 is the default this is no problem when syncing.
+			db.execSQL("update " + Tables.TASKS + " set " + Tasks.PRIORITY + "=null where " + Tasks.PRIORITY + "=0;");
 		}
 
 	}

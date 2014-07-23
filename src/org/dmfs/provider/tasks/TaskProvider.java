@@ -1354,6 +1354,11 @@ public final class TaskProvider extends SQLiteContentProvider
 			{
 				throw new IllegalArgumentException("PRIORITY must be an integer between 0 and 9");
 			}
+			else if (priority != null && priority == 0)
+			{
+				// replace priority 0 by null, we need that for proper sorting
+				values.putNull(TaskColumns.PRIORITY);
+			}
 		}
 
 		// check that CLASSIFICATION is an Integer between 0 and 2 if given
