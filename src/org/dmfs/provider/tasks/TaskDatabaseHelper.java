@@ -659,6 +659,11 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		{
 			db.execSQL(SQL_CREATE_LISTS_CLEANUP_TRIGGER);
 		}
+		if (oldVersion < 8)
+		{
+			// replace priority 0 by null. We need this to sort the widget properly. Since 0 is the default this is no problem when syncing.
+			db.execSQL("update " + Tables.TASKS + " set " + Tasks.PRIORITY + "=null where " + Tasks.PRIORITY + "=0;");
+		}
 
 		// upgrade FTS
 		FTSDatabaseHelper.onUpgrade(db, oldVersion, newVersion);
