@@ -460,7 +460,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	 *            The fields to index.
 	 * @return An SQL command string.
 	 */
-	private final static String createIndexString(String table, String... fields)
+	public final static String createIndexString(String table, String... fields)
 	{
 		assert (fields.length >= 1);
 		StringBuffer buffer = new StringBuffer();

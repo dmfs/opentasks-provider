@@ -1,6 +1,11 @@
 package org.dmfs.provider.tasks;
 
+import java.util.HashSet;
+import java.util.Set;
+
+import org.dmfs.ngrams.NGramGenerator;
 import org.dmfs.provider.tasks.TaskContract.Properties;
+import org.dmfs.provider.tasks.TaskContract.TaskColumns;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
 import org.dmfs.provider.tasks.handler.PropertyHandler;
@@ -44,29 +49,59 @@ public class FTSDatabaseHelper
 		public static final String TYPE = "fts_type";
 
 		/**
-		 * The searchable text for a task.
+		 * An n-gram for a task.
 		 */
-		public static final String TEXT = "fts_text";
+		public static final String NGRAM_ID = "fts_ngram_id";
+
+	}
+
+	/**
+	 * The columns of the N-gram table for the FTS search
+	 * 
+	 * @author Tobias Reinsch <tobias@dmfs.org>
+	 */
+	public interface NGramColumns
+	{
+		/**
+		 * The row id of the N-gram.
+		 */
+		public static final String NGRAM_ID = "ngram_id";
+
+		/**
+		 * The content of the N-gram
+		 */
+		public static final String TEXT = "ngram_text";
 
 	}
 
 	public static final String FTS_CONTENT_TABLE = "FTS_Content";
+	public static final String FTS_NGRAM_TABLE = "FTS_Ngram";
 	public static final String FTS_TASK_VIEW = "FTS_Task_View";
 	public static final String FTS_TASK_PROPERTY_VIEW = "FTS_Task_Property_View";
 
 	/**
-	 * SQL command to create the virtual fts table for full text search
+	 * SQL command to create the table for full text search and contains relationships between ngrams and tasks
 	 */
-	private final static String SQL_CREATE_SEARCH_CONTENT_TABLE = "CREATE VIRTUAL TABLE " + FTS_CONTENT_TABLE + " USING fts3 ( " + FTSContentColumns.TASK_ID
-		+ ", " + FTSContentColumns.PROPERTY_ID + ", " + FTSContentColumns.TYPE + ", " + FTSContentColumns.TEXT + ")";
+	private final static String SQL_CREATE_SEARCH_CONTENT_TABLE = "CREATE TABLE " + FTS_CONTENT_TABLE + "( " + FTSContentColumns.TASK_ID + " Integer, "
+		+ FTSContentColumns.NGRAM_ID + " Integer, " + FTSContentColumns.PROPERTY_ID + " Integer, " + FTSContentColumns.TYPE + " Text, " + "FOREIGN KEY("
+		+ FTSContentColumns.TASK_ID + ") REFERENCES " + Tables.TASKS + "(" + TaskColumns._ID + ")," + "FOREIGN KEY(" + FTSContentColumns.TASK_ID
+		+ ") REFERENCES " + Tables.TASKS + "(" + TaskColumns._ID + ") UNIQUE (" + FTSContentColumns.TASK_ID + ", " + FTSContentColumns.TYPE + ", "
+		+ FTSContentColumns.PROPERTY_ID + ") ON CONFLICT IGNORE )";
 
-	private final static String SQL_CREATE_SEARCH_TASK_VIEW = "CREATE VIEW " + FTS_TASK_VIEW + " AS SELECT " + Tables.TASKS_VIEW + ".* , " + FTS_CONTENT_TABLE
-		+ "." + FTSContentColumns.TEXT + " from " + FTS_CONTENT_TABLE + " join " + Tables.TASKS_VIEW + " on (" + Tables.TASKS_VIEW + "." + Tasks._ID + "="
+	/**
+	 * SQL command to create the table that stores the NGRAMS
+	 */
+	private final static String SQL_CREATE_NGRAM_TABLE = "CREATE TABLE " + FTS_NGRAM_TABLE + "( " + NGramColumns.NGRAM_ID
+		+ " Integer PRIMARY KEY AUTOINCREMENT, " + NGramColumns.TEXT + " Text UNIQUE ON CONFLICT IGNORE)";
+
+	private final static String SQL_CREATE_SEARCH_TASK_VIEW = "CREATE VIEW " + FTS_TASK_VIEW + " AS SELECT " + Tables.TASKS_VIEW + ".* ," + FTS_NGRAM_TABLE
+		+ "." + NGramColumns.TEXT + " from " + FTS_NGRAM_TABLE + " join " + FTS_CONTENT_TABLE + " on (" + FTS_NGRAM_TABLE + "." + NGramColumns.NGRAM_ID + "="
+		+ FTS_CONTENT_TABLE + "." + FTSContentColumns.NGRAM_ID + ") join " + Tables.TASKS_VIEW + " on (" + Tables.TASKS_VIEW + "." + Tasks._ID + " = "
 		+ FTS_CONTENT_TABLE + "." + FTSContentColumns.TASK_ID + ");";
 
 	private final static String SQL_CREATE_SEARCH_TASK_PROPERTY_VIEW = "CREATE VIEW " + FTS_TASK_PROPERTY_VIEW + " AS SELECT " + Tables.TASKS_PROPERTY_VIEW
-		+ ".* , " + FTS_CONTENT_TABLE + "." + FTSContentColumns.TEXT + " from " + FTS_CONTENT_TABLE + " join " + Tables.TASKS_PROPERTY_VIEW + " on ("
-		+ Tables.TASKS_PROPERTY_VIEW + "." + Tasks._ID + "=" + FTS_CONTENT_TABLE + "." + FTSContentColumns.TASK_ID + ");";
+		+ ".*  " + " from " + FTS_CONTENT_TABLE + " join " + Tables.TASKS_PROPERTY_VIEW + " on (" + Tables.TASKS_PROPERTY_VIEW + "." + Tasks._ID + "="
+		+ FTS_CONTENT_TABLE + "." + FTSContentColumns.TASK_ID + ");";
 
 	private final static String SQL_CREATE_SEARCH_TASK_DELETE_TRIGGER = "CREATE TRIGGER search_task_delete_trigger AFTER DELETE ON " + Tables.TASKS + " BEGIN "
 		+ " DELETE FROM " + FTS_CONTENT_TABLE + " WHERE " + FTSContentColumns.TASK_ID + " =  old." + Tasks._ID + "; END";
@@ -120,10 +155,16 @@ public class FTSDatabaseHelper
 	private static void initializeFTS(SQLiteDatabase db)
 	{
 		db.execSQL(SQL_CREATE_SEARCH_CONTENT_TABLE);
+		db.execSQL(SQL_CREATE_NGRAM_TABLE);
 		db.execSQL(SQL_CREATE_SEARCH_TASK_VIEW);
 		db.execSQL(SQL_CREATE_SEARCH_TASK_PROPERTY_VIEW);
 		db.execSQL(SQL_CREATE_SEARCH_TASK_DELETE_TRIGGER);
 		db.execSQL(SQL_CREATE_SEARCH_TASK_DELETE_PROPERTY_TRIGGER);
+
+		// create indices
+		db.execSQL(TaskDatabaseHelper.createIndexString(FTS_NGRAM_TABLE, NGramColumns.TEXT));
+		db.execSQL(TaskDatabaseHelper
+			.createIndexString(FTS_CONTENT_TABLE, FTSContentColumns.NGRAM_ID, FTSContentColumns.TASK_ID, FTSContentColumns.PROPERTY_ID));
 	}
 
 
@@ -190,18 +231,24 @@ public class FTSDatabaseHelper
 	 */
 	private static void insertTaskFTSEntries(SQLiteDatabase db, String taskId, String title, String description)
 	{
-		ContentValues values = new ContentValues(3);
-		values.put(FTSContentColumns.TASK_ID, taskId);
+
+		NGramGenerator generator = new NGramGenerator(3, 1);
 
 		// title
-		values.put(FTSContentColumns.TYPE, SearchableTypes.TITLE);
-		values.put(FTSContentColumns.TEXT, title);
-		db.insert(FTS_CONTENT_TABLE, null, values);
+		if (title != null && title.length() > 0)
+		{
+			Set<String> titleNgrams = generator.getNgrams(title);
+			Set<Long> titleNgramIds = insertNGrams(db, titleNgrams);
+			insertNGramRelations(db, titleNgramIds, taskId, null, SearchableTypes.TITLE);
+		}
 
 		// description
-		values.put(FTSContentColumns.TYPE, SearchableTypes.DESCRIPTION);
-		values.put(FTSContentColumns.TEXT, description);
-		db.insert(FTS_CONTENT_TABLE, null, values);
+		if (description != null)
+		{
+			Set<String> descriptionNgrams = generator.getNgrams(description);
+			Set<Long> descriptionNgramIds = insertNGrams(db, descriptionNgrams);
+			insertNGramRelations(db, descriptionNgramIds, taskId, null, SearchableTypes.DESCRIPTION);
+		}
 
 	}
 
@@ -220,22 +267,34 @@ public class FTSDatabaseHelper
 	{
 		if (newValues != null)
 		{
-			ContentValues values = new ContentValues(1);
-
+			NGramGenerator generator = new NGramGenerator(3, 1);
 			// title
-			if (values.containsKey(Tasks.TITLE))
+			if (newValues.containsKey(Tasks.TITLE))
 			{
+				// delete title relations
+				deleteNGramRelations(db, taskId, null, SearchableTypes.TITLE);
+
 				String title = newValues.getAsString(Tasks.TITLE);
-				values.put(FTSContentColumns.TEXT, title);
-				db.update(FTS_CONTENT_TABLE, values, SQL_UPDATE_SELECTION, new String[] { taskId, SearchableTypes.TITLE });
+
+				// insert title ngrams
+				Set<String> titleNgrams = generator.getNgrams(title);
+				Set<Long> titleNgramIds = insertNGrams(db, titleNgrams);
+				insertNGramRelations(db, titleNgramIds, taskId, null, SearchableTypes.TITLE);
+
 			}
 
 			// description
-			if (values.containsKey(Tasks.DESCRIPTION))
+			if (newValues.containsKey(Tasks.DESCRIPTION))
 			{
+				// delete description relations
+				deleteNGramRelations(db, taskId, null, SearchableTypes.DESCRIPTION);
+
 				String description = newValues.getAsString(Tasks.DESCRIPTION);
-				values.put(FTSContentColumns.TEXT, description);
-				db.update(FTS_CONTENT_TABLE, values, SQL_UPDATE_SELECTION, new String[] { taskId, SearchableTypes.DESCRIPTION });
+
+				// insert description ngrams
+				Set<String> descriptionNgrams = generator.getNgrams(description);
+				Set<Long> descriptionNgramIds = insertNGrams(db, descriptionNgrams);
+				insertNGramRelations(db, descriptionNgramIds, taskId, null, SearchableTypes.DESCRIPTION);
 			}
 		}
 
@@ -259,13 +318,20 @@ public class FTSDatabaseHelper
 			String mimetype = values.getAsString(Properties.MIMETYPE);
 			PropertyHandler handler = PropertyHandlerFactory.create(mimetype);
 			String searchableText = handler.getSearchableEntry(values);
+			String taskId = values.getAsString(Properties.TASK_ID);
 
-			ContentValues insertValues = new ContentValues(4);
-			insertValues.put(FTSContentColumns.TASK_ID, values.getAsString(Properties.TASK_ID));
-			insertValues.put(FTSContentColumns.PROPERTY_ID, String.valueOf(rowId));
-			insertValues.put(FTSContentColumns.TYPE, SearchableTypes.PROPERTY);
-			insertValues.put(FTSContentColumns.TEXT, searchableText);
-			db.insert(FTS_CONTENT_TABLE, null, insertValues);
+			if (searchableText != null && searchableText.length() > 0 && taskId != null)
+			{
+				// generate nGrams
+				NGramGenerator generator = new NGramGenerator(3, 1);
+				Set<String> propertyNgrams = generator.getNgrams(searchableText);
+
+				// insert ngrams
+				Set<Long> propertyNgramIds = insertNGrams(db, propertyNgrams);
+
+				// insert ngram relations
+				insertNGramRelations(db, propertyNgramIds, taskId, rowId, SearchableTypes.DESCRIPTION);
+			}
 		}
 
 	}
@@ -285,15 +351,109 @@ public class FTSDatabaseHelper
 	{
 		if (values != null && values.containsKey(Properties.PROPERTY_ID))
 		{
-			String propertyId = values.getAsString(Properties.PROPERTY_ID);
+			Long propertyId = values.getAsLong(Properties.PROPERTY_ID);
 			String taskId = values.getAsString(Properties.TASK_ID);
 			String searchableText = handler.getSearchableEntry(values);
 
-			ContentValues updateValues = new ContentValues(1);
-			updateValues.put(FTSContentColumns.TEXT, searchableText);
-			db.update(FTS_CONTENT_TABLE, updateValues, SQL_UPDATE_PROPERTY_SELECTION, new String[] { taskId, propertyId, SearchableTypes.PROPERTY });
+			// delete NGram relations
+			deleteNGramRelations(db, taskId, propertyId, SearchableTypes.PROPERTY);
+
+			if (searchableText != null && searchableText.length() > 0 && taskId != null)
+			{
+				// generate nGrams
+				NGramGenerator generator = new NGramGenerator(3, 1);
+				Set<String> propertyNgrams = generator.getNgrams(searchableText);
+
+				// insert ngrams
+				Set<Long> propertyNgramIds = insertNGrams(db, propertyNgrams);
+
+				// insert ngram relations
+				insertNGramRelations(db, propertyNgramIds, taskId, propertyId, SearchableTypes.DESCRIPTION);
+			}
 		}
 
+	}
+
+
+	/**
+	 * Inserts NGrams into the NGram database.
+	 * 
+	 * @param db
+	 *            A writable {@link SQLiteDatabase}.
+	 * @param ngrams
+	 *            The set of NGrams.
+	 * @return The ids of the ngrams.
+	 */
+	private static Set<Long> insertNGrams(SQLiteDatabase db, Set<String> ngrams)
+	{
+		Set<Long> nGramIds = new HashSet<Long>(ngrams.size());
+		for (String ngram : ngrams)
+		{
+			ContentValues values = new ContentValues(1);
+			values.put(NGramColumns.TEXT, ngram);
+			long nGramId = db.insertWithOnConflict(FTS_NGRAM_TABLE, null, values, SQLiteDatabase.CONFLICT_IGNORE);
+			nGramIds.add(nGramId);
+		}
+		return nGramIds;
+
+	}
+
+
+	/**
+	 * Inserts NGrams relations for a task entry.
+	 * 
+	 * @param db
+	 *            A writable {@link SQLiteDatabase}.
+	 * @param ngramIds
+	 *            The set of NGram ids.
+	 * @param taskId
+	 *            The row id of the task.
+	 * @param propertyId
+	 *            The row id of the property.
+	 * @param The
+	 *            entry type of the relation (title, description, property).
+	 */
+	private static void insertNGramRelations(SQLiteDatabase db, Set<Long> ngramIds, String taskId, Long propertyId, String contentType)
+	{
+		for (Long ngramId : ngramIds)
+		{
+			ContentValues values = new ContentValues(3);
+			values.put(FTSContentColumns.TASK_ID, taskId);
+			if (propertyId != null)
+			{
+				values.put(FTSContentColumns.PROPERTY_ID, propertyId);
+			}
+			values.put(FTSContentColumns.NGRAM_ID, ngramId);
+			values.put(FTSContentColumns.TYPE, contentType);
+			db.insertWithOnConflict(FTS_CONTENT_TABLE, null, values, SQLiteDatabase.CONFLICT_IGNORE);
+		}
+
+	}
+
+
+	/**
+	 * Deletes the NGram relations of an task
+	 * 
+	 * @param db
+	 *            The writable {@link SQLiteDatabase}.
+	 * @param taskId
+	 *            The task row id.
+	 * @param propertyId
+	 *            The property row id.
+	 * @param contentType
+	 *            The {@link SearchableTypes} type.
+	 * @return The number of deleted relations.
+	 */
+	private static int deleteNGramRelations(SQLiteDatabase db, String taskId, Long propertyId, String contentType)
+	{
+		String[] selectionArgs = new String[] { taskId, contentType };
+		StringBuilder whereClause = new StringBuilder(FTSContentColumns.TASK_ID).append(" = ?");
+		whereClause.append(" AND ").append(FTSContentColumns.TYPE).append(" = ?");
+		if (propertyId != null)
+		{
+			whereClause.append(" AND ").append(FTSContentColumns.PROPERTY_ID).append(" = ").append(propertyId);
+		}
+		return db.delete(FTS_CONTENT_TABLE, whereClause.toString(), selectionArgs);
 	}
 
 
@@ -317,28 +477,51 @@ public class FTSDatabaseHelper
 	public static Cursor getTaskSearchCursor(SQLiteDatabase db, String searchString, String[] projection, String selection, String[] selectionArgs,
 		String sortOrder)
 	{
+
+		// get search string NGrams
+		NGramGenerator generator = new NGramGenerator(3, 1);
+		Set<String> ngrams = generator.getNgrams(searchString);
+
 		if (!TextUtils.isEmpty(selection))
 		{
-			selection = " (" + selection + ") AND (fts_text MATCH ?)";
+			selection = " (" + selection + ") AND (";
 		}
 		else
 		{
-			selection = "fts_text MATCH ?";
+			selection = "(";
 		}
 
 		// selection arguments
 		String[] queryArgs;
 		if (selectionArgs != null)
 		{
-			queryArgs = new String[selectionArgs.length + 1];
+			queryArgs = new String[selectionArgs.length + ngrams.size()];
 			System.arraycopy(selectionArgs, 0, queryArgs, 0, selectionArgs.length);
 			queryArgs[selectionArgs.length] = searchString;
 		}
 		else
 		{
-			queryArgs = new String[] { searchString };
+			queryArgs = new String[ngrams.size()];
 		}
-		Cursor c = db.query(FTS_TASK_VIEW, projection, selection, queryArgs, Tasks._ID, null, sortOrder);
+
+		int i = 0;
+		if (selectionArgs != null)
+		{
+			i = selectionArgs.length - 1;
+		}
+		for (String ngram : ngrams)
+		{
+
+			selection += NGramColumns.TEXT + " = ?";
+			if (i < queryArgs.length - 1)
+			{
+				selection += " OR ";
+			}
+			queryArgs[i++] = ngram;
+		}
+		selection += ") AND " + Tasks._DELETED + " = 0";
+
+		Cursor c = db.query(FTS_TASK_VIEW, projection, selection, queryArgs, Tasks._ID, "count(*) = " + (ngrams.size() - 1), sortOrder);
 		return c;
 	}
 }
