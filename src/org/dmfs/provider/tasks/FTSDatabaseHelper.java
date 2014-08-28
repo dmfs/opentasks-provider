@@ -21,7 +21,7 @@ import android.text.TextUtils;
  * Supports the {@link TaskDatabaseHelper} in the manner of full-tex-search.
  * 
  * @author Tobias Reinsch <tobias@dmfs.org>
- * 
+ * @author Marten Gajda <marten@dmfs.org>
  */
 public class FTSDatabaseHelper
 {
@@ -98,6 +98,13 @@ public class FTSDatabaseHelper
 		+ "." + NGramColumns.TEXT + " from " + FTS_NGRAM_TABLE + " join " + FTS_CONTENT_TABLE + " on (" + FTS_NGRAM_TABLE + "." + NGramColumns.NGRAM_ID + "="
 		+ FTS_CONTENT_TABLE + "." + FTSContentColumns.NGRAM_ID + ") join " + Tables.TASKS_VIEW + " on (" + Tables.TASKS_VIEW + "." + Tasks._ID + " = "
 		+ FTS_CONTENT_TABLE + "." + FTSContentColumns.TASK_ID + ");";
+
+	private final static String SQL_RAW_QUERY_SEARCH_TASK = "SELECT %s " + ", 1.0*count(*)/? as " + TaskContract.Tasks.SCORE + " from " + FTS_NGRAM_TABLE
+		+ " join " + FTS_CONTENT_TABLE + " on (" + FTS_NGRAM_TABLE + "." + NGramColumns.NGRAM_ID + "=" + FTS_CONTENT_TABLE + "." + FTSContentColumns.NGRAM_ID
+		+ ") join " + Tables.TASKS_VIEW + " on (" + Tables.TASKS_VIEW + "." + Tasks._ID + " = " + FTS_CONTENT_TABLE + "." + FTSContentColumns.TASK_ID
+		+ ") where %s group by " + Tasks._ID + " order by %s;";
+
+	private final static String SQL_RAW_QUERY_SEARCH_TASK_DEFAULT_PROJECTION = Tables.TASKS_VIEW + ".* ," + FTS_NGRAM_TABLE + "." + NGramColumns.TEXT;
 
 	private final static String SQL_CREATE_SEARCH_TASK_PROPERTY_VIEW = "CREATE VIEW " + FTS_TASK_PROPERTY_VIEW + " AS SELECT " + Tables.TASKS_PROPERTY_VIEW
 		+ ".*  " + " from " + FTS_CONTENT_TABLE + " join " + Tables.TASKS_PROPERTY_VIEW + " on (" + Tables.TASKS_PROPERTY_VIEW + "." + Tasks._ID + "="
@@ -392,6 +399,23 @@ public class FTSDatabaseHelper
 			ContentValues values = new ContentValues(1);
 			values.put(NGramColumns.TEXT, ngram);
 			long nGramId = db.insertWithOnConflict(FTS_NGRAM_TABLE, null, values, SQLiteDatabase.CONFLICT_IGNORE);
+			if (nGramId == -1)
+			{
+				Cursor c = db
+					.query(FTS_NGRAM_TABLE, new String[] { NGramColumns.NGRAM_ID }, NGramColumns.TEXT + "=?", new String[] { ngram }, null, null, null);
+				try
+				{
+					if (c.moveToFirst())
+					{
+						nGramId = c.getLong(0);
+					}
+				}
+				finally
+				{
+					c.close();
+				}
+
+			}
 			nGramIds.add(nGramId);
 		}
 		return nGramIds;
@@ -482,46 +506,72 @@ public class FTSDatabaseHelper
 		NGramGenerator generator = new NGramGenerator(3, 1);
 		Set<String> ngrams = generator.getNgrams(searchString);
 
+		StringBuilder selectionBuilder = new StringBuilder(1024);
+
 		if (!TextUtils.isEmpty(selection))
 		{
-			selection = " (" + selection + ") AND (";
+			selectionBuilder.append(" (");
+			selectionBuilder.append(selection);
+			selectionBuilder.append(") AND (");
 		}
 		else
 		{
-			selection = "(";
+			selectionBuilder.append(" (");
+		}
+
+		selectionBuilder.append(NGramColumns.TEXT);
+		selectionBuilder.append(" in (");
+
+		for (int i = 0, count = ngrams.size(); i < count; ++i)
+		{
+			if (i > 0)
+			{
+				selectionBuilder.append(",");
+			}
+			selectionBuilder.append("?");
+		}
+
+		selectionBuilder.append(" )");
+		if (!TextUtils.isEmpty(selection))
+		{
+			selectionBuilder.append(" )");
 		}
 
 		// selection arguments
 		String[] queryArgs;
-		if (selectionArgs != null)
+		if (selectionArgs != null && selectionArgs.length > 0)
 		{
-			queryArgs = new String[selectionArgs.length + ngrams.size()];
-			System.arraycopy(selectionArgs, 0, queryArgs, 0, selectionArgs.length);
-			queryArgs[selectionArgs.length] = searchString;
+			queryArgs = new String[selectionArgs.length + ngrams.size() + 1];
+			queryArgs[0] = String.valueOf(ngrams.size());
+			System.arraycopy(selectionArgs, 0, queryArgs, 1, selectionArgs.length);
+			String[] ngramArray = ngrams.toArray(new String[ngrams.size()]);
+			System.arraycopy(ngramArray, 0, queryArgs, selectionArgs.length + 1, ngramArray.length);
 		}
 		else
 		{
-			queryArgs = new String[ngrams.size()];
+			String[] temp = ngrams.toArray(new String[ngrams.size()]);
+
+			queryArgs = new String[temp.length + 1];
+			queryArgs[0] = String.valueOf(ngrams.size());
+			System.arraycopy(temp, 0, queryArgs, 1, temp.length);
 		}
 
-		int i = 0;
-		if (selectionArgs != null)
+		selectionBuilder.append(") AND ");
+		selectionBuilder.append(Tasks._DELETED);
+		selectionBuilder.append(" = 0");
+
+		if (sortOrder == null)
 		{
-			i = selectionArgs.length - 1;
+			sortOrder = Tasks.SCORE + " desc";
 		}
-		for (String ngram : ngrams)
+		else
 		{
-
-			selection += NGramColumns.TEXT + " = ?";
-			if (i < queryArgs.length - 1)
-			{
-				selection += " OR ";
-			}
-			queryArgs[i++] = ngram;
+			sortOrder = Tasks.SCORE + " desc, " + sortOrder;
 		}
-		selection += ") AND " + Tasks._DELETED + " = 0";
 
-		Cursor c = db.query(FTS_TASK_VIEW, projection, selection, queryArgs, Tasks._ID, "count(*) = " + (ngrams.size() - 1), sortOrder);
+		// Cursor c = db.query(FTS_TASK_VIEW, projection, selectionBuilder.toString(), queryArgs, Tasks._ID, null, sortOrder);
+		Cursor c = db.rawQueryWithFactory(null,
+			String.format(SQL_RAW_QUERY_SEARCH_TASK, SQL_RAW_QUERY_SEARCH_TASK_DEFAULT_PROJECTION, selectionBuilder.toString(), sortOrder), queryArgs, null);
 		return c;
 	}
 }

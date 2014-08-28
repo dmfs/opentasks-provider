@@ -701,11 +701,28 @@ public final class TaskContract
 	}
 
 	/**
+	 * Columns that are valid in a search query.
+	 * 
+	 * @author Marten Gajda <marten@dmfs.org>
+	 */
+	public interface TaskSearchColumns
+	{
+		/**
+		 * The score of a task in a search result. It's an indicator for the relevance of the task. Value is in (0, 1.0] where 0 would be "no relevance" at all
+		 * (though the result doesn't contain such tasks).
+		 * <p>
+		 * Value: Float
+		 * </p>
+		 */
+		public final static String SCORE = "score";
+	}
+
+	/**
 	 * The task table stores the data of all tasks.
 	 * 
 	 * @author Marten Gajda <marten@dmfs.org>
 	 */
-	public static final class Tasks implements TaskColumns, CommonSyncColumns, TaskSyncColumns
+	public static final class Tasks implements TaskColumns, CommonSyncColumns, TaskSyncColumns, TaskSearchColumns
 	{
 		/**
 		 * The name of the account the task belongs to. This is auto-derived from the list the task belongs to. Do not write this value here.
