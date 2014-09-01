@@ -251,7 +251,7 @@ public class FTSDatabaseHelper
 		}
 
 		// description
-		if (description != null)
+		if (description != null && description.length() > 0)
 		{
 			Set<String> descriptionNgrams = generator.getNgrams(description);
 			Set<Long> descriptionNgramIds = insertNGrams(db, descriptionNgrams);
@@ -284,11 +284,13 @@ public class FTSDatabaseHelper
 
 				String title = newValues.getAsString(Tasks.TITLE);
 
-				// insert title ngrams
-				Set<String> titleNgrams = generator.getNgrams(title);
-				Set<Long> titleNgramIds = insertNGrams(db, titleNgrams);
-				insertNGramRelations(db, titleNgramIds, taskId, null, SearchableTypes.TITLE);
-
+				if (title != null && title.length() > 0)
+				{
+					// insert title ngrams
+					Set<String> titleNgrams = generator.getNgrams(title);
+					Set<Long> titleNgramIds = insertNGrams(db, titleNgrams);
+					insertNGramRelations(db, titleNgramIds, taskId, null, SearchableTypes.TITLE);
+				}
 			}
 
 			// description
@@ -299,10 +301,13 @@ public class FTSDatabaseHelper
 
 				String description = newValues.getAsString(Tasks.DESCRIPTION);
 
-				// insert description ngrams
-				Set<String> descriptionNgrams = generator.getNgrams(description);
-				Set<Long> descriptionNgramIds = insertNGrams(db, descriptionNgrams);
-				insertNGramRelations(db, descriptionNgramIds, taskId, null, SearchableTypes.DESCRIPTION);
+				if (description != null && description.length() > 0)
+				{
+					// insert description ngrams
+					Set<String> descriptionNgrams = generator.getNgrams(description);
+					Set<Long> descriptionNgramIds = insertNGrams(db, descriptionNgrams);
+					insertNGramRelations(db, descriptionNgramIds, taskId, null, SearchableTypes.DESCRIPTION);
+				}
 			}
 		}
 
