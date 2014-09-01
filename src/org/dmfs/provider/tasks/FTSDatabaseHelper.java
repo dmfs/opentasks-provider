@@ -99,12 +99,13 @@ public class FTSDatabaseHelper
 		+ FTS_CONTENT_TABLE + "." + FTSContentColumns.NGRAM_ID + ") join " + Tables.TASKS_VIEW + " on (" + Tables.TASKS_VIEW + "." + Tasks._ID + " = "
 		+ FTS_CONTENT_TABLE + "." + FTSContentColumns.TASK_ID + ");";
 
-	private final static String SQL_RAW_QUERY_SEARCH_TASK = "SELECT %s " + ", 1.0*count(*)/? as " + TaskContract.Tasks.SCORE + " from " + FTS_NGRAM_TABLE
-		+ " join " + FTS_CONTENT_TABLE + " on (" + FTS_NGRAM_TABLE + "." + NGramColumns.NGRAM_ID + "=" + FTS_CONTENT_TABLE + "." + FTSContentColumns.NGRAM_ID
-		+ ") join " + Tables.TASKS_VIEW + " on (" + Tables.TASKS_VIEW + "." + Tasks._ID + " = " + FTS_CONTENT_TABLE + "." + FTSContentColumns.TASK_ID
-		+ ") where %s group by " + Tasks._ID + " order by %s;";
+	// FIXME: at present the minimum score is hard coded can we leave that decision to the caller?
+	private final static String SQL_RAW_QUERY_SEARCH_TASK = "SELECT %s " + ", min(1.0*count(*)/?, 1.0) as " + TaskContract.Tasks.SCORE + " from "
+		+ FTS_NGRAM_TABLE + " join " + FTS_CONTENT_TABLE + " on (" + FTS_NGRAM_TABLE + "." + NGramColumns.NGRAM_ID + "=" + FTS_CONTENT_TABLE + "."
+		+ FTSContentColumns.NGRAM_ID + ") join " + Tables.INSTANCE_VIEW + " on (" + Tables.INSTANCE_VIEW + "." + Tasks._ID + " = " + FTS_CONTENT_TABLE + "."
+		+ FTSContentColumns.TASK_ID + ") where %s group by " + Tasks._ID + " having " + TaskContract.Tasks.SCORE + " > 0.3 " + " order by %s;";
 
-	private final static String SQL_RAW_QUERY_SEARCH_TASK_DEFAULT_PROJECTION = Tables.TASKS_VIEW + ".* ," + FTS_NGRAM_TABLE + "." + NGramColumns.TEXT;
+	private final static String SQL_RAW_QUERY_SEARCH_TASK_DEFAULT_PROJECTION = Tables.INSTANCE_VIEW + ".* ," + FTS_NGRAM_TABLE + "." + NGramColumns.TEXT;
 
 	private final static String SQL_CREATE_SEARCH_TASK_PROPERTY_VIEW = "CREATE VIEW " + FTS_TASK_PROPERTY_VIEW + " AS SELECT " + Tables.TASKS_PROPERTY_VIEW
 		+ ".*  " + " from " + FTS_CONTENT_TABLE + " join " + Tables.TASKS_PROPERTY_VIEW + " on (" + Tables.TASKS_PROPERTY_VIEW + "." + Tasks._ID + "="
@@ -163,15 +164,15 @@ public class FTSDatabaseHelper
 	{
 		db.execSQL(SQL_CREATE_SEARCH_CONTENT_TABLE);
 		db.execSQL(SQL_CREATE_NGRAM_TABLE);
-		db.execSQL(SQL_CREATE_SEARCH_TASK_VIEW);
-		db.execSQL(SQL_CREATE_SEARCH_TASK_PROPERTY_VIEW);
+		// db.execSQL(SQL_CREATE_SEARCH_TASK_VIEW);
+		// db.execSQL(SQL_CREATE_SEARCH_TASK_PROPERTY_VIEW);
 		db.execSQL(SQL_CREATE_SEARCH_TASK_DELETE_TRIGGER);
 		db.execSQL(SQL_CREATE_SEARCH_TASK_DELETE_PROPERTY_TRIGGER);
 
 		// create indices
 		db.execSQL(TaskDatabaseHelper.createIndexString(FTS_NGRAM_TABLE, NGramColumns.TEXT));
-		db.execSQL(TaskDatabaseHelper
-			.createIndexString(FTS_CONTENT_TABLE, FTSContentColumns.NGRAM_ID, FTSContentColumns.TASK_ID, FTSContentColumns.PROPERTY_ID));
+		db.execSQL(TaskDatabaseHelper.createIndexString(FTS_CONTENT_TABLE, FTSContentColumns.NGRAM_ID));
+		db.execSQL(TaskDatabaseHelper.createIndexString(FTS_CONTENT_TABLE, FTSContentColumns.TASK_ID));
 	}
 
 
@@ -502,10 +503,6 @@ public class FTSDatabaseHelper
 		String sortOrder)
 	{
 
-		// get search string NGrams
-		NGramGenerator generator = new NGramGenerator(3, 1);
-		Set<String> ngrams = generator.getNgrams(searchString);
-
 		StringBuilder selectionBuilder = new StringBuilder(1024);
 
 		if (!TextUtils.isEmpty(selection))
@@ -519,41 +516,66 @@ public class FTSDatabaseHelper
 			selectionBuilder.append(" (");
 		}
 
-		selectionBuilder.append(NGramColumns.TEXT);
-		selectionBuilder.append(" in (");
+		NGramGenerator generator = new NGramGenerator(3, 1);
+		Set<String> ngrams = generator.getNgrams(searchString);
 
-		for (int i = 0, count = ngrams.size(); i < count; ++i)
-		{
-			if (i > 0)
-			{
-				selectionBuilder.append(",");
-			}
-			selectionBuilder.append("?");
-		}
-
-		selectionBuilder.append(" )");
-		if (!TextUtils.isEmpty(selection))
-		{
-			selectionBuilder.append(" )");
-		}
-
-		// selection arguments
 		String[] queryArgs;
-		if (selectionArgs != null && selectionArgs.length > 0)
+
+		if (searchString != null && searchString.length() > 2)
 		{
-			queryArgs = new String[selectionArgs.length + ngrams.size() + 1];
-			queryArgs[0] = String.valueOf(ngrams.size());
-			System.arraycopy(selectionArgs, 0, queryArgs, 1, selectionArgs.length);
-			String[] ngramArray = ngrams.toArray(new String[ngrams.size()]);
-			System.arraycopy(ngramArray, 0, queryArgs, selectionArgs.length + 1, ngramArray.length);
+
+			selectionBuilder.append(NGramColumns.TEXT);
+			selectionBuilder.append(" in (");
+
+			for (int i = 0, count = ngrams.size(); i < count; ++i)
+			{
+				if (i > 0)
+				{
+					selectionBuilder.append(",");
+				}
+				selectionBuilder.append("?");
+
+			}
+
+			// selection arguments
+			if (selectionArgs != null && selectionArgs.length > 0)
+			{
+				queryArgs = new String[selectionArgs.length + ngrams.size() + 1];
+				queryArgs[0] = String.valueOf(ngrams.size());
+				System.arraycopy(selectionArgs, 0, queryArgs, 1, selectionArgs.length);
+				String[] ngramArray = ngrams.toArray(new String[ngrams.size()]);
+				System.arraycopy(ngramArray, 0, queryArgs, selectionArgs.length + 1, ngramArray.length);
+			}
+			else
+			{
+				String[] temp = ngrams.toArray(new String[ngrams.size()]);
+
+				queryArgs = new String[temp.length + 1];
+				queryArgs[0] = String.valueOf(ngrams.size());
+				System.arraycopy(temp, 0, queryArgs, 1, temp.length);
+			}
+			selectionBuilder.append(" ) ");
 		}
 		else
 		{
-			String[] temp = ngrams.toArray(new String[ngrams.size()]);
+			selectionBuilder.append(NGramColumns.TEXT);
+			selectionBuilder.append(" like ?");
 
-			queryArgs = new String[temp.length + 1];
-			queryArgs[0] = String.valueOf(ngrams.size());
-			System.arraycopy(temp, 0, queryArgs, 1, temp.length);
+			// selection arguments
+			if (selectionArgs != null && selectionArgs.length > 0)
+			{
+				queryArgs = new String[selectionArgs.length + 2];
+				queryArgs[0] = String.valueOf(ngrams.size());
+				System.arraycopy(selectionArgs, 0, queryArgs, 1, selectionArgs.length);
+				queryArgs[queryArgs.length - 1] = searchString + "%";
+			}
+			else
+			{
+				queryArgs = new String[2];
+				queryArgs[0] = String.valueOf(ngrams.size());
+				queryArgs[1] = searchString + "%";
+			}
+
 		}
 
 		selectionBuilder.append(") AND ");
@@ -569,7 +591,6 @@ public class FTSDatabaseHelper
 			sortOrder = Tasks.SCORE + " desc, " + sortOrder;
 		}
 
-		// Cursor c = db.query(FTS_TASK_VIEW, projection, selectionBuilder.toString(), queryArgs, Tasks._ID, null, sortOrder);
 		Cursor c = db.rawQueryWithFactory(null,
 			String.format(SQL_RAW_QUERY_SEARCH_TASK, SQL_RAW_QUERY_SEARCH_TASK_DEFAULT_PROJECTION, selectionBuilder.toString(), sortOrder), queryArgs, null);
 		return c;
