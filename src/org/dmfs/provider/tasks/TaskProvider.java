@@ -574,7 +574,13 @@ public final class TaskProvider extends SQLiteContentProvider
 			case SEARCH:
 				String searchString = uri.getQueryParameter(Tasks.SEARCH_QUERY_PARAMETER);
 				searchString = Uri.decode(searchString);
-				return FTSDatabaseHelper.getTaskSearchCursor(db, searchString, projection, selection, selectionArgs, sortOrder);
+				Cursor searchCursor = FTSDatabaseHelper.getTaskSearchCursor(db, searchString, projection, selection, selectionArgs, sortOrder);
+				if (searchCursor != null)
+				{
+					// attach tasks uri for notifications, that way the search results are updated when a task changes
+					searchCursor.setNotificationUri(getContext().getContentResolver(), Tasks.getContentUri(mAuthority));
+				}
+				return searchCursor;
 
 			default:
 				throw new IllegalArgumentException("Unknown URI " + uri);
