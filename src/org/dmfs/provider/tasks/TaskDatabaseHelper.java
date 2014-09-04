@@ -460,13 +460,23 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	 *            The fields to index.
 	 * @return An SQL command string.
 	 */
-	public final static String createIndexString(String table, String... fields)
+	public final static String createIndexString(String table, boolean unique, String... fields)
 	{
-		assert (fields.length >= 1);
+		if (fields == null || fields.length < 1)
+		{
+			throw new IllegalArgumentException("need at least one field to build an index!");
+		}
+
 		StringBuffer buffer = new StringBuffer();
 
 		// Index name is constructed like this: tablename_fields[0]_idx
-		buffer.append("CREATE INDEX ").append(table).append("_").append(fields[0]).append("_idx ON ");
+		buffer.append("CREATE ");
+		if (unique)
+		{
+			buffer.append(" UNIQUE ");
+		}
+		buffer.append("INDEX ");
+		buffer.append(table).append("_").append(fields[0]).append("_idx ON ");
 		buffer.append(table).append(" (");
 		buffer.append(fields[0]);
 		for (int i = 1; i < fields.length; i++)
@@ -541,16 +551,16 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		db.execSQL(SQL_CREATE_INSTANCE_CATEGORY_VIEW);
 
 		// create indices
-		db.execSQL(createIndexString(Tables.INSTANCES, TaskContract.Instances.TASK_ID, TaskContract.Instances.INSTANCE_START,
+		db.execSQL(createIndexString(Tables.INSTANCES, false, TaskContract.Instances.TASK_ID, TaskContract.Instances.INSTANCE_START,
 			TaskContract.Instances.INSTANCE_DUE));
-		db.execSQL(createIndexString(Tables.LISTS, TaskContract.TaskLists.ACCOUNT_NAME, // not sure if necessary
+		db.execSQL(createIndexString(Tables.LISTS, false, TaskContract.TaskLists.ACCOUNT_NAME, // not sure if necessary
 			TaskContract.TaskLists.ACCOUNT_TYPE));
-		db.execSQL(createIndexString(Tables.TASKS, TaskContract.Tasks.STATUS, TaskContract.Tasks.LIST_ID, TaskContract.Tasks._SYNC_ID));
-		db.execSQL(createIndexString(Tables.PROPERTIES, TaskContract.Properties.MIMETYPE, TaskContract.Properties.TASK_ID));
-		db.execSQL(createIndexString(Tables.PROPERTIES, TaskContract.Properties.TASK_ID));
-		db.execSQL(createIndexString(Tables.CATEGORIES, TaskContract.Categories.ACCOUNT_NAME, TaskContract.Categories.ACCOUNT_TYPE,
+		db.execSQL(createIndexString(Tables.TASKS, false, TaskContract.Tasks.STATUS, TaskContract.Tasks.LIST_ID, TaskContract.Tasks._SYNC_ID));
+		db.execSQL(createIndexString(Tables.PROPERTIES, false, TaskContract.Properties.MIMETYPE, TaskContract.Properties.TASK_ID));
+		db.execSQL(createIndexString(Tables.PROPERTIES, false, TaskContract.Properties.TASK_ID));
+		db.execSQL(createIndexString(Tables.CATEGORIES, false, TaskContract.Categories.ACCOUNT_NAME, TaskContract.Categories.ACCOUNT_TYPE,
 			TaskContract.Categories.NAME));
-		db.execSQL(createIndexString(Tables.CATEGORIES, TaskContract.Categories.NAME));
+		db.execSQL(createIndexString(Tables.CATEGORIES, false, TaskContract.Categories.NAME));
 
 		// trigger that removes properties of a task that has been removed
 		db.execSQL(SQL_CREATE_TASKS_CLEANUP_TRIGGER);
@@ -636,11 +646,11 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			db.execSQL(SQL_CREATE_INSTANCE_CATEGORY_VIEW);
 
 			// create Indices
-			db.execSQL(createIndexString(Tables.PROPERTIES, TaskContract.Properties.MIMETYPE, TaskContract.Properties.TASK_ID));
-			db.execSQL(createIndexString(Tables.PROPERTIES, TaskContract.Properties.TASK_ID));
-			db.execSQL(createIndexString(Tables.CATEGORIES, TaskContract.Categories.ACCOUNT_NAME, TaskContract.Categories.ACCOUNT_TYPE,
+			db.execSQL(createIndexString(Tables.PROPERTIES, false, TaskContract.Properties.MIMETYPE, TaskContract.Properties.TASK_ID));
+			db.execSQL(createIndexString(Tables.PROPERTIES, false, TaskContract.Properties.TASK_ID));
+			db.execSQL(createIndexString(Tables.CATEGORIES, false, TaskContract.Categories.ACCOUNT_NAME, TaskContract.Categories.ACCOUNT_TYPE,
 				TaskContract.Categories.NAME));
-			db.execSQL(createIndexString(Tables.CATEGORIES, TaskContract.Categories.NAME));
+			db.execSQL(createIndexString(Tables.CATEGORIES, false, TaskContract.Categories.NAME));
 
 			// add new triggers
 			db.execSQL(SQL_CREATE_ALARM_PROPERTY_CLEANUP_TRIGGER);

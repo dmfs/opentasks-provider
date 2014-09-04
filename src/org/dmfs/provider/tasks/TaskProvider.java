@@ -226,9 +226,9 @@ public final class TaskProvider extends SQLiteContentProvider
 	 *            The Uri.
 	 * @return The last path segment (which should contain the id).
 	 */
-	private String getId(Uri uri)
+	private long getId(Uri uri)
 	{
-		return uri.getPathSegments().get(1);
+		return Long.parseLong(uri.getPathSegments().get(1));
 	}
 
 
@@ -321,7 +321,7 @@ public final class TaskProvider extends SQLiteContentProvider
 	}
 
 
-	private StringBuilder _selectId(StringBuilder sb, String id, String key)
+	private StringBuilder _selectId(StringBuilder sb, long id, String key)
 	{
 		if (sb.length() > 0)
 		{
@@ -354,7 +354,7 @@ public final class TaskProvider extends SQLiteContentProvider
 	}
 
 
-	protected StringBuilder selectTaskId(String id)
+	protected StringBuilder selectTaskId(long id)
 	{
 		StringBuilder sb = new StringBuilder(128);
 		return selectTaskId(sb, id);
@@ -367,7 +367,7 @@ public final class TaskProvider extends SQLiteContentProvider
 	}
 
 
-	protected StringBuilder selectTaskId(StringBuilder sb, String id)
+	protected StringBuilder selectTaskId(StringBuilder sb, long id)
 	{
 		return _selectId(sb, id, Instances.TASK_ID);
 
@@ -402,7 +402,7 @@ public final class TaskProvider extends SQLiteContentProvider
 		sqlBuilder.appendWhere(" AND ");
 		sqlBuilder.appendWhere(idColumn);
 		sqlBuilder.appendWhere("=");
-		sqlBuilder.appendWhereEscapeString(getId(uri));
+		sqlBuilder.appendWhere(String.valueOf(getId(uri)));
 	}
 
 
@@ -781,7 +781,6 @@ public final class TaskProvider extends SQLiteContentProvider
 				result_uri = TaskContract.Properties.getContentUri(mAuthority);
 				if (rowId > 0)
 				{
-					FTSDatabaseHelper.insertPropertyFTSEntry(db, values, rowId);
 					postNotifyUri(Tasks.getContentUri(mAuthority));
 					postNotifyUri(Instances.getContentUri(mAuthority));
 				}
@@ -863,10 +862,6 @@ public final class TaskProvider extends SQLiteContentProvider
 				break;
 
 			case PROPERTY_ID:
-				if (!values.containsKey(Properties.PROPERTY_ID))
-				{
-					throw new IllegalArgumentException("PROPERTY_ID is required on UPDATE");
-				}
 				String newPropertySelection = updateSelection(selectId(uri), selection);
 
 				// query existing property to check mimetype
@@ -881,7 +876,6 @@ public final class TaskProvider extends SQLiteContentProvider
 						count = handler.update(db, values, newPropertySelection, selectionArgs, isSyncAdapter);
 						if (count > 0)
 						{
-							FTSDatabaseHelper.updatePropertyFTSEntry(db, values, handler);
 							postNotifyUri(Tasks.getContentUri(mAuthority));
 							postNotifyUri(Instances.getContentUri(mAuthority));
 						}
@@ -1090,7 +1084,7 @@ public final class TaskProvider extends SQLiteContentProvider
 			{
 				while (cursor.moveToNext())
 				{
-					String taskId = cursor.getString(0);
+					long taskId = cursor.getLong(0);
 					String taskSelection = updateSelection(selectTaskId(taskId), selection).toString();
 					updateInstancesOfOneTask(db, taskId, values, taskSelection, selectionArgs);
 				}
@@ -1103,7 +1097,7 @@ public final class TaskProvider extends SQLiteContentProvider
 	}
 
 
-	private void updateInstancesOfOneTask(SQLiteDatabase db, String task_id, ContentValues values, String selection, String[] selectionArgs)
+	private void updateInstancesOfOneTask(SQLiteDatabase db, long task_id, ContentValues values, String selection, String[] selectionArgs)
 	{
 		// check if either one of the following has been updated: DTSTART, DUE, DURATION, RRULE, RDATE, EXDATE
 		// right now we only update DTSTART, DUE and DURATION

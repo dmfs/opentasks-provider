@@ -1,10 +1,9 @@
 package org.dmfs.provider.tasks.handler;
 
-import org.dmfs.provider.tasks.TaskContract.Properties;
+import org.dmfs.provider.tasks.FTSDatabaseHelper;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
 
 import android.content.ContentValues;
-import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
 
@@ -103,26 +102,16 @@ public abstract class PropertyHandler
 	 * 
 	 * @param db
 	 *            The {@link SQLiteDatabase}.
-	 * @param propertyCursor
-	 *            The cursor to the {@link Properties} table, containing all columns.
+	 * @param taskId
+	 *            the row id of the task this property belongs to
+	 * @param propertyId
+	 *            the id of the property
+	 * @param text
+	 *            the searchable text of the property. If the property has multiple text snippets to search in, concat them separated by a space.
 	 */
-	public void insertFTSEntry(SQLiteDatabase db, Cursor propertyCursor)
+	protected void updateFTSEntry(SQLiteDatabase db, long taskId, long propertyId, String text)
 	{
+		FTSDatabaseHelper.updatePropertyFTSEntry(db, taskId, propertyId, text);
 
 	}
-
-
-	/**
-	 * Method hook to return a searchable text for the property.
-	 * 
-	 * @param values
-	 *            The {@link ContentValues} for the property.
-	 * 
-	 * @return The searchable text as {@link String}.
-	 */
-	public String getSearchableEntry(ContentValues values)
-	{
-		return null;
-	};
-
 }

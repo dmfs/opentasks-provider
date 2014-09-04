@@ -155,10 +155,14 @@ public class CategoryHandler extends PropertyHandler
 	{
 		values = validateValues(db, true, values, isSyncAdapter);
 		values = getOrInsertCategory(db, values);
-		insertRelation(db, values.getAsString(Category.TASK_ID), values.getAsString(Category.CATEGORY_ID));
 
 		// insert property row and create relation
-		return super.insert(db, values, isSyncAdapter);
+		insertRelation(db, values.getAsString(Category.TASK_ID), values.getAsString(Category.CATEGORY_ID));
+		long id = super.insert(db, values, isSyncAdapter);
+
+		// update FTS entry with category name
+		updateFTSEntry(db, values.getAsLong(Properties.TASK_ID), id, values.getAsString(Category.CATEGORY_NAME));
+		return id;
 	}
 
 
@@ -181,7 +185,6 @@ public class CategoryHandler extends PropertyHandler
 	@Override
 	public int update(SQLiteDatabase db, ContentValues values, String selection, String[] selectionArgs, boolean isSyncAdapter)
 	{
-		super.update(db, values, selection, selectionArgs, isSyncAdapter);
 		values = validateValues(db, true, values, isSyncAdapter);
 		values = getOrInsertCategory(db, values);
 
