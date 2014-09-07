@@ -1,3 +1,20 @@
+/*
+ * Copyright (C) 2014 Marten Gajda <marten@dmfs.org>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ */
+
 package org.dmfs.provider.tasks.handler;
 
 import org.dmfs.provider.tasks.TaskContract.Categories;
@@ -34,6 +51,10 @@ public class CategoryHandler extends PropertyHandler
 	 * 
 	 * @param db
 	 *            The {@link SQLiteDatabase}.
+	 * @param taskId
+	 *            The id of the task this property belongs to.
+	 * @param propertyId
+	 *            The id of the property if <code>isNew</code> is <code>false</code>. If <code>isNew</code> is <code>true</code> this value is ignored.
 	 * @param isNew
 	 *            Indicates that the content is new and not an update.
 	 * @param values
@@ -47,7 +68,7 @@ public class CategoryHandler extends PropertyHandler
 	 *             if the {@link ContentValues} are invalid.
 	 */
 	@Override
-	public ContentValues validateValues(SQLiteDatabase db, boolean isNew, ContentValues values, boolean isSyncAdapter)
+	public ContentValues validateValues(SQLiteDatabase db, long taskId, long propertyId, boolean isNew, ContentValues values, boolean isSyncAdapter)
 	{
 		// the category requires a name or an id
 		if (!values.containsKey(Category.CATEGORY_ID) && !values.containsKey(Category.CATEGORY_NAME))
@@ -69,14 +90,13 @@ public class CategoryHandler extends PropertyHandler
 		String accountType = null;
 		try
 		{
+			if (taskCursor.moveToNext())
 			{
-				taskCursor.moveToNext();
 				accountName = taskCursor.getString(0);
 				accountType = taskCursor.getString(1);
 
 				values.put(Categories.ACCOUNT_NAME, accountName);
 				values.put(Categories.ACCOUNT_TYPE, accountType);
-
 			}
 		}
 		finally
@@ -143,6 +163,8 @@ public class CategoryHandler extends PropertyHandler
 	 * 
 	 * @param db
 	 *            The {@link SQLiteDatabase}.
+	 * @param taskId
+	 *            The id of the task the new property belongs to.
 	 * @param values
 	 *            The {@link ContentValues} to insert.
 	 * @param isSyncAdapter
@@ -151,17 +173,17 @@ public class CategoryHandler extends PropertyHandler
 	 * @return The row id of the new category as <code>long</code>
 	 */
 	@Override
-	public long insert(SQLiteDatabase db, ContentValues values, boolean isSyncAdapter)
+	public long insert(SQLiteDatabase db, long taskId, ContentValues values, boolean isSyncAdapter)
 	{
-		values = validateValues(db, true, values, isSyncAdapter);
+		values = validateValues(db, taskId, -1, true, values, isSyncAdapter);
 		values = getOrInsertCategory(db, values);
 
 		// insert property row and create relation
-		insertRelation(db, values.getAsString(Category.TASK_ID), values.getAsString(Category.CATEGORY_ID));
-		long id = super.insert(db, values, isSyncAdapter);
+		insertRelation(db, taskId, values.getAsLong(Category.CATEGORY_ID));
+		long id = super.insert(db, taskId, values, isSyncAdapter);
 
 		// update FTS entry with category name
-		updateFTSEntry(db, values.getAsLong(Properties.TASK_ID), id, values.getAsString(Category.CATEGORY_NAME));
+		updateFTSEntry(db, taskId, id, values.getAsString(Category.CATEGORY_NAME));
 		return id;
 	}
 
@@ -171,24 +193,30 @@ public class CategoryHandler extends PropertyHandler
 	 * 
 	 * @param db
 	 *            The {@link SQLiteDatabase}.
+	 * @param taskId
+	 *            The id of the task this property belongs to.
+	 * @param propertyId
+	 *            The id of the property.
 	 * @param values
 	 *            The {@link ContentValues} to update.
-	 * @param selection
-	 *            The selection <code>String</code> to update the right row.
-	 * @param selectionArgs
-	 *            The arguments for the selection <code>String</code>.
 	 * @param isSyncAdapter
 	 *            Indicates that the transaction was triggered from a SyncAdapter.
 	 * 
 	 * @return The number of rows affected.
 	 */
 	@Override
-	public int update(SQLiteDatabase db, ContentValues values, String selection, String[] selectionArgs, boolean isSyncAdapter)
+	public int update(SQLiteDatabase db, long taskId, long propertyId, ContentValues values, boolean isSyncAdapter)
 	{
-		values = validateValues(db, true, values, isSyncAdapter);
+		values = validateValues(db, taskId, propertyId, false, values, isSyncAdapter);
 		values = getOrInsertCategory(db, values);
 
-		return super.update(db, values, selection, selectionArgs, isSyncAdapter);
+		if (values.containsKey(Category.CATEGORY_NAME))
+		{
+			// update FTS entry with new category name
+			updateFTSEntry(db, taskId, propertyId, values.getAsString(Category.CATEGORY_NAME));
+		}
+
+		return super.update(db, taskId, propertyId, values, isSyncAdapter);
 	}
 
 
@@ -206,7 +234,7 @@ public class CategoryHandler extends PropertyHandler
 		if (values.getAsBoolean(IS_NEW_CATEGORY))
 		{
 			// insert new category in category table
-			ContentValues newCategoryValues = new ContentValues();
+			ContentValues newCategoryValues = new ContentValues(4);
 			newCategoryValues.put(Categories.ACCOUNT_NAME, values.getAsString(Categories.ACCOUNT_NAME));
 			newCategoryValues.put(Categories.ACCOUNT_TYPE, values.getAsString(Categories.ACCOUNT_TYPE));
 			newCategoryValues.put(Categories.NAME, values.getAsString(Category.CATEGORY_NAME));
@@ -236,9 +264,9 @@ public class CategoryHandler extends PropertyHandler
 	 *            The row id of the category.
 	 * @return The row id of the inserted relation.
 	 */
-	private long insertRelation(SQLiteDatabase db, String taskId, String categoryId)
+	private long insertRelation(SQLiteDatabase db, long taskId, long categoryId)
 	{
-		ContentValues relationValues = new ContentValues();
+		ContentValues relationValues = new ContentValues(2);
 		relationValues.put(CategoriesMapping.TASK_ID, taskId);
 		relationValues.put(CategoriesMapping.CATEGORY_ID, categoryId);
 		return db.insert(Tables.CATEGORIES_MAPPING, "", relationValues);

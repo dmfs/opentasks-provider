@@ -1,6 +1,24 @@
+/*
+ * Copyright (C) 2014 Marten Gajda <marten@dmfs.org>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ */
+
 package org.dmfs.provider.tasks.handler;
 
 import org.dmfs.provider.tasks.FTSDatabaseHelper;
+import org.dmfs.provider.tasks.TaskContract.Properties;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
 
 import android.content.ContentValues;
@@ -21,6 +39,10 @@ public abstract class PropertyHandler
 	 * 
 	 * @param db
 	 *            The {@link SQLiteDatabase}.
+	 * @param taskId
+	 *            The id of the task this property belongs to.
+	 * @param propertyId
+	 *            The id of the property if <code>isNew</code> is <code>false</code>. If <code>isNew</code> is <code>true</code> this value is ignored.
 	 * @param isNew
 	 *            Indicates that the content is new and not an update.
 	 * @param values
@@ -33,7 +55,7 @@ public abstract class PropertyHandler
 	 * @throws IllegalArgumentException
 	 *             if the {@link ContentValues} are invalid.
 	 */
-	public abstract ContentValues validateValues(SQLiteDatabase db, boolean isNew, ContentValues values, boolean isSyncAdapter);
+	public abstract ContentValues validateValues(SQLiteDatabase db, long taskId, long propertyId, boolean isNew, ContentValues values, boolean isSyncAdapter);
 
 
 	/**
@@ -41,6 +63,8 @@ public abstract class PropertyHandler
 	 * 
 	 * @param db
 	 *            The {@link SQLiteDatabase}.
+	 * @param taskId
+	 *            The id of the task the new property belongs to.
 	 * @param values
 	 *            The {@link ContentValues} to insert.
 	 * @param isSyncAdapter
@@ -48,7 +72,7 @@ public abstract class PropertyHandler
 	 * 
 	 * @return The row id of the new property as <code>long</code>
 	 */
-	public long insert(SQLiteDatabase db, ContentValues values, boolean isSyncAdapter)
+	public long insert(SQLiteDatabase db, long taskId, ContentValues values, boolean isSyncAdapter)
 	{
 		return db.insert(Tables.PROPERTIES, "", values);
 	}
@@ -59,21 +83,20 @@ public abstract class PropertyHandler
 	 * 
 	 * @param db
 	 *            The {@link SQLiteDatabase}.
+	 * @param taskId
+	 *            The id of the task this property belongs to.
+	 * @param propertyId
+	 *            The id of the property.
 	 * @param values
 	 *            The {@link ContentValues} to update.
-	 * @param selection
-	 *            The selection <code>String</code> to update the right row.
-	 * @param selectionArgs
-	 *            The arguments for the selection <code>String</code>.
 	 * @param isSyncAdapter
 	 *            Indicates that the transaction was triggered from a SyncAdapter.
 	 * 
 	 * @return The number of rows affected.
 	 */
-	public int update(SQLiteDatabase db, ContentValues values, String selection, String[] selectionArgs, boolean isSyncAdapter)
+	public int update(SQLiteDatabase db, long taskId, long propertyId, ContentValues values, boolean isSyncAdapter)
 	{
-
-		return db.update(Tables.PROPERTIES, values, selection, selectionArgs);
+		return db.update(Tables.PROPERTIES, values, Properties.PROPERTY_ID + "=" + propertyId, null);
 	}
 
 
@@ -82,17 +105,17 @@ public abstract class PropertyHandler
 	 * 
 	 * @param db
 	 *            The belonging database.
-	 * @param selection
-	 *            The selection <code>String</code> to delete the correct row.
-	 * @param selectionArgs
-	 *            The arguments for the selection <code>String</code>
+	 * @param taskId
+	 *            The id of the task this property belongs to.
+	 * @param propertyId
+	 *            The id of the property.
 	 * @param isSyncAdapter
 	 *            Indicates that the transaction was triggered from a SyncAdapter.
 	 * @return
 	 */
-	public int delete(SQLiteDatabase db, String selection, String[] selectionArgs, boolean isSyncAdapter)
+	public int delete(SQLiteDatabase db, long taskId, long propertyId, boolean isSyncAdapter)
 	{
-		return db.delete(Tables.PROPERTIES, selection, selectionArgs);
+		return db.delete(Tables.PROPERTIES, Properties.PROPERTY_ID + "=" + propertyId, null);
 
 	}
 

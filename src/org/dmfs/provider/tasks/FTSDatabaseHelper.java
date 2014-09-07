@@ -1,3 +1,20 @@
+/*
+ * Copyright (C) 2014 Marten Gajda <marten@dmfs.org>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ */
+
 package org.dmfs.provider.tasks;
 
 import java.util.HashSet;
@@ -204,44 +221,6 @@ public class FTSDatabaseHelper
 	 * 
 	 * @param db
 	 *            The writable {@link SQLiteDatabase}.
-	 * @param values
-	 *            The {@link ContentValues} of the task.
-	 * @param rowId
-	 *            The row id of the task.
-	 */
-	public static void insertTaskFTSEntries(SQLiteDatabase db, ContentValues values, long rowId)
-	{
-		if (values != null)
-		{
-
-			String title = null;
-			if (values.containsKey(Tasks.TITLE))
-			{
-				title = values.getAsString(Tasks.TITLE);
-			}
-
-			String description = null;
-			if (values.containsKey(Tasks.DESCRIPTION))
-			{
-				description = values.getAsString(Tasks.DESCRIPTION);
-			}
-
-			String location = null;
-			if (values.containsKey(Tasks.LOCATION))
-			{
-				location = values.getAsString(Tasks.LOCATION);
-			}
-
-			insertTaskFTSEntries(db, rowId, title, description, location);
-		}
-	}
-
-
-	/**
-	 * Inserts the searchable texts of the task in the database.
-	 * 
-	 * @param db
-	 *            The writable {@link SQLiteDatabase}.
 	 * 
 	 * @param taskId
 	 *            The row id of the task.
@@ -255,17 +234,19 @@ public class FTSDatabaseHelper
 		// title
 		if (title != null && title.length() > 0)
 		{
-			Set<String> titleNgrams = NGRAM_GENERATOR.getNgrams(title);
-			Set<Long> titleNgramIds = insertNGrams(db, titleNgrams);
-			insertNGramRelations(db, titleNgramIds, taskId, null, SearchableTypes.TITLE);
+			updateEntry(db, taskId, -1, SearchableTypes.TITLE, title);
+		}
+
+		// location
+		if (location != null && location.length() > 0)
+		{
+			updateEntry(db, taskId, -1, SearchableTypes.LOCATION, location);
 		}
 
 		// description
 		if (description != null && description.length() > 0)
 		{
-			Set<String> descriptionNgrams = NGRAM_GENERATOR.getNgrams(description);
-			Set<Long> descriptionNgramIds = insertNGrams(db, descriptionNgrams);
-			insertNGramRelations(db, descriptionNgramIds, taskId, null, SearchableTypes.DESCRIPTION);
+			updateEntry(db, taskId, -1, SearchableTypes.DESCRIPTION, description);
 		}
 
 	}
@@ -288,52 +269,19 @@ public class FTSDatabaseHelper
 			// title
 			if (newValues.containsKey(Tasks.TITLE))
 			{
-				// delete title relations
-				deleteNGramRelations(db, taskId, null, SearchableTypes.TITLE);
-
-				String title = newValues.getAsString(Tasks.TITLE);
-
-				if (title != null && title.length() > 0)
-				{
-					// insert title ngrams
-					Set<String> titleNgrams = NGRAM_GENERATOR.getNgrams(title);
-					Set<Long> titleNgramIds = insertNGrams(db, titleNgrams);
-					insertNGramRelations(db, titleNgramIds, taskId, null, SearchableTypes.TITLE);
-				}
+				updateEntry(db, taskId, -1, SearchableTypes.TITLE, newValues.getAsString(Tasks.TITLE));
 			}
 
 			// location
 			if (newValues.containsKey(Tasks.LOCATION))
 			{
-				// delete location relations
-				deleteNGramRelations(db, taskId, null, SearchableTypes.LOCATION);
-
-				String location = newValues.getAsString(Tasks.LOCATION);
-
-				if (location != null && location.length() > 0)
-				{
-					// insert location ngrams
-					Set<String> descriptionNgrams = NGRAM_GENERATOR.getNgrams(location);
-					Set<Long> descriptionNgramIds = insertNGrams(db, descriptionNgrams);
-					insertNGramRelations(db, descriptionNgramIds, taskId, null, SearchableTypes.LOCATION);
-				}
+				updateEntry(db, taskId, -1, SearchableTypes.LOCATION, newValues.getAsString(Tasks.LOCATION));
 			}
 
 			// description
 			if (newValues.containsKey(Tasks.DESCRIPTION))
 			{
-				// delete description relations
-				deleteNGramRelations(db, taskId, null, SearchableTypes.DESCRIPTION);
-
-				String description = newValues.getAsString(Tasks.DESCRIPTION);
-
-				if (description != null && description.length() > 0)
-				{
-					// insert description ngrams
-					Set<String> descriptionNgrams = NGRAM_GENERATOR.getNgrams(description);
-					Set<Long> descriptionNgramIds = insertNGrams(db, descriptionNgrams);
-					insertNGramRelations(db, descriptionNgramIds, taskId, null, SearchableTypes.DESCRIPTION);
-				}
+				updateEntry(db, taskId, -1, SearchableTypes.DESCRIPTION, newValues.getAsString(Tasks.DESCRIPTION));
 			}
 		}
 
@@ -354,21 +302,7 @@ public class FTSDatabaseHelper
 	 */
 	public static void updatePropertyFTSEntry(SQLiteDatabase db, long taskId, long propertyId, String searchableText)
 	{
-		// delete existing NGram relations
-		deleteNGramRelations(db, taskId, propertyId, SearchableTypes.PROPERTY);
-
-		if (searchableText != null && searchableText.length() > 0)
-		{
-			// generate nGrams
-			Set<String> propertyNgrams = NGRAM_GENERATOR.getNgrams(searchableText);
-
-			// insert ngrams
-			Set<Long> propertyNgramIds = insertNGrams(db, propertyNgrams);
-
-			// insert ngram relations
-			insertNGramRelations(db, propertyNgramIds, taskId, propertyId, SearchableTypes.PROPERTY);
-		}
-
+		updateEntry(db, taskId, propertyId, SearchableTypes.PROPERTY, searchableText);
 	}
 
 
@@ -415,6 +349,25 @@ public class FTSDatabaseHelper
 	}
 
 
+	private static void updateEntry(SQLiteDatabase db, long taskId, long propertyId, int type, String searchableText)
+	{
+		// delete existing NGram relations
+		deleteNGramRelations(db, taskId, propertyId, type);
+
+		if (searchableText != null && searchableText.length() > 0)
+		{
+			// generate nGrams
+			Set<String> propertyNgrams = NGRAM_GENERATOR.getNgrams(searchableText);
+
+			// insert ngrams
+			Set<Long> propertyNgramIds = insertNGrams(db, propertyNgrams);
+
+			// insert ngram relations
+			insertNGramRelations(db, propertyNgramIds, taskId, propertyId, type);
+		}
+	}
+
+
 	/**
 	 * Inserts NGrams relations for a task entry.
 	 * 
@@ -435,9 +388,16 @@ public class FTSDatabaseHelper
 		for (Long ngramId : ngramIds)
 		{
 			values.put(FTSContentColumns.TASK_ID, taskId);
-			values.put(FTSContentColumns.PROPERTY_ID, propertyId);
 			values.put(FTSContentColumns.NGRAM_ID, ngramId);
 			values.put(FTSContentColumns.TYPE, contentType);
+			if (contentType == SearchableTypes.PROPERTY)
+			{
+				values.put(FTSContentColumns.PROPERTY_ID, propertyId);
+			}
+			else
+			{
+				values.putNull(FTSContentColumns.PROPERTY_ID);
+			}
 			db.insertWithOnConflict(FTS_CONTENT_TABLE, null, values, SQLiteDatabase.CONFLICT_IGNORE);
 		}
 
@@ -452,16 +412,16 @@ public class FTSDatabaseHelper
 	 * @param taskId
 	 *            The task row id.
 	 * @param propertyId
-	 *            The property row id.
+	 *            The property row id, ignored if <code>contentType</code> is not {@link SearchableTypes#PROPERTY}.
 	 * @param contentType
 	 *            The {@link SearchableTypes} type.
 	 * @return The number of deleted relations.
 	 */
-	private static int deleteNGramRelations(SQLiteDatabase db, long taskId, Long propertyId, int contentType)
+	private static int deleteNGramRelations(SQLiteDatabase db, long taskId, long propertyId, int contentType)
 	{
 		StringBuilder whereClause = new StringBuilder(FTSContentColumns.TASK_ID).append(" = ").append(taskId);
 		whereClause.append(" AND ").append(FTSContentColumns.TYPE).append(" = ").append(contentType);
-		if (propertyId != null)
+		if (contentType == SearchableTypes.PROPERTY)
 		{
 			whereClause.append(" AND ").append(FTSContentColumns.PROPERTY_ID).append(" = ").append(propertyId);
 		}

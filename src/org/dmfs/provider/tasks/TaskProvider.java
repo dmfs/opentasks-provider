@@ -97,6 +97,7 @@ public final class TaskProvider extends SQLiteContentProvider
 	private static final String[] TASK_ID_PROJECTION = { Tasks._ID };
 	private static final String[] TASK_SYNC_ID_PROJECTION = { Tasks._SYNC_ID };
 	private static final String[] TASKLIST_ID_PROJECTION = { TaskLists._ID };
+	private static final String[] PROPERTY_PROJECTION = { Properties.PROPERTY_ID, Properties.TASK_ID, Properties.MIMETYPE };
 
 	private static final String SYNC_ID_SELECTION = Tasks._SYNC_ID + "=?";
 	private static final String TASK_ID_SELECTION = Tasks._ID + "=?";
@@ -383,7 +384,20 @@ public final class TaskProvider extends SQLiteContentProvider
 
 	protected StringBuilder selectPropertyId(StringBuilder sb, Uri uri)
 	{
-		return _selectId(sb, getId(uri), PropertyColumns.PROPERTY_ID);
+		return selectPropertyId(sb, getId(uri));
+	}
+
+
+	protected StringBuilder selectPropertyId(long id)
+	{
+		StringBuilder sb = new StringBuilder(128);
+		return selectPropertyId(sb, id);
+	}
+
+
+	protected StringBuilder selectPropertyId(StringBuilder sb, long id)
+	{
+		return _selectId(sb, id, PropertyColumns.PROPERTY_ID);
 	}
 
 
@@ -674,29 +688,31 @@ public final class TaskProvider extends SQLiteContentProvider
 				break;
 
 			case PROPERTY_ID:
-				String[] queryProjection = { Properties.MIMETYPE };
 				selection = updateSelection(selectPropertyId(uri), selection);
 
-				Cursor cursor = db.query(Tables.PROPERTIES, queryProjection, selection, selectionArgs, null, null, null);
+			case PROPERTIES:
+				// fetch all properties that match the selection
+				Cursor cursor = db.query(Tables.PROPERTIES, PROPERTY_PROJECTION, selection, selectionArgs, null, null, null);
 
-				String mimeType = null;
 				try
 				{
-					if (cursor.moveToFirst())
+					while (cursor.moveToFirst())
 					{
-						mimeType = cursor.getString(0);
+						long propertyId = cursor.getLong(0);
+						long taskId = cursor.getLong(1);
+						String mimeType = cursor.getString(2);
+						if (mimeType != null)
+						{
+							PropertyHandler handler = PropertyHandlerFactory.get(mimeType);
+							count += handler.delete(db, taskId, propertyId, isSyncAdapter);
+						}
 					}
 				}
 				finally
 				{
 					cursor.close();
 				}
-				if (mimeType != null)
-				{
-					PropertyHandler handler = PropertyHandlerFactory.create(mimeType);
-					count = handler.delete(db, selection, selectionArgs, isSyncAdapter);
-				}
-
+				postNotifyUri(Properties.getContentUri(mAuthority));
 				break;
 
 			default:
@@ -768,7 +784,7 @@ public final class TaskProvider extends SQLiteContentProvider
 				createInstances(db, uri, values, rowId);
 
 				// insert FTS entries
-				FTSDatabaseHelper.insertTaskFTSEntries(db, values, rowId);
+				FTSDatabaseHelper.updateTaskFTSEntries(db, rowId, values);
 
 				result_uri = TaskContract.Tasks.getContentUri(mAuthority);
 
@@ -776,10 +792,28 @@ public final class TaskProvider extends SQLiteContentProvider
 				break;
 
 			case PROPERTIES:
-				PropertyHandler handler = PropertyHandlerFactory.create(values.getAsString(Properties.MIMETYPE));
-				rowId = handler.insert(db, values, isSyncAdapter);
+				String mimetype = values.getAsString(Properties.MIMETYPE);
+
+				if (mimetype == null)
+				{
+					throw new IllegalArgumentException("missing mimetype in property values");
+				}
+
+				Long taskId = values.getAsLong(Properties.TASK_ID);
+				if (taskId == null)
+				{
+					throw new IllegalArgumentException("missing task id in property values");
+				}
+
+				if (values.containsKey(Properties.PROPERTY_ID))
+				{
+					throw new IllegalArgumentException("property id can not be written");
+				}
+
+				PropertyHandler handler = PropertyHandlerFactory.get(mimetype);
+				rowId = handler.insert(db, taskId, values, isSyncAdapter);
 				result_uri = TaskContract.Properties.getContentUri(mAuthority);
-				if (rowId > 0)
+				if (rowId >= 0)
 				{
 					postNotifyUri(Tasks.getContentUri(mAuthority));
 					postNotifyUri(Instances.getContentUri(mAuthority));
@@ -860,24 +894,39 @@ public final class TaskProvider extends SQLiteContentProvider
 
 				updateNotifications();
 				break;
-
 			case PROPERTY_ID:
-				String newPropertySelection = updateSelection(selectId(uri), selection);
+				selection = updateSelection(selectPropertyId(uri), selection);
 
-				// query existing property to check mimetype
-				Cursor cursor = db.query(Tables.PROPERTIES, new String[] { Properties.MIMETYPE }, values.getAsString(Properties.PROPERTY_ID) + " = "
-					+ Properties.PROPERTY_ID, null, null, null, null);
+			case PROPERTIES:
+				if (values.containsKey(Properties.MIMETYPE))
+				{
+					throw new IllegalArgumentException("property mimetypes can not be modified");
+				}
+
+				if (values.containsKey(Properties.TASK_ID))
+				{
+					throw new IllegalArgumentException("task id can not be changed");
+				}
+
+				if (values.containsKey(Properties.PROPERTY_ID))
+				{
+					throw new IllegalArgumentException("property id can not be changed");
+				}
+
+				// fetch all properties that match the selection
+				Cursor cursor = db.query(Tables.PROPERTIES, PROPERTY_PROJECTION, selection, selectionArgs, null, null, null);
+
 				try
 				{
-					if (cursor.moveToFirst())
+					while (cursor.moveToFirst())
 					{
-						// create handler from found mimetype
-						PropertyHandler handler = PropertyHandlerFactory.create(cursor.getString(0));
-						count = handler.update(db, values, newPropertySelection, selectionArgs, isSyncAdapter);
-						if (count > 0)
+						long propertyId = cursor.getLong(0);
+						long taskId = cursor.getLong(1);
+						String mimeType = cursor.getString(2);
+						if (mimeType != null)
 						{
-							postNotifyUri(Tasks.getContentUri(mAuthority));
-							postNotifyUri(Instances.getContentUri(mAuthority));
+							PropertyHandler handler = PropertyHandlerFactory.get(mimeType);
+							count += handler.update(db, taskId, propertyId, values, isSyncAdapter);
 						}
 					}
 				}
@@ -885,7 +934,7 @@ public final class TaskProvider extends SQLiteContentProvider
 				{
 					cursor.close();
 				}
-
+				postNotifyUri(Properties.getContentUri(mAuthority));
 				break;
 
 			case CATEGORY_ID:
