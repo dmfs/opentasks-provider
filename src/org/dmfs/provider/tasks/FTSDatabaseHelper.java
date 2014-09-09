@@ -120,7 +120,7 @@ public class FTSDatabaseHelper
 	private final static String SQL_RAW_QUERY_SEARCH_TASK = "SELECT %s " + ", min(1.0*count(*)/?, 1.0) as " + TaskContract.Tasks.SCORE + " from "
 		+ FTS_NGRAM_TABLE + " join " + FTS_CONTENT_TABLE + " on (" + FTS_NGRAM_TABLE + "." + NGramColumns.NGRAM_ID + "=" + FTS_CONTENT_TABLE + "."
 		+ FTSContentColumns.NGRAM_ID + ") join " + Tables.INSTANCE_VIEW + " on (" + Tables.INSTANCE_VIEW + "." + Tasks._ID + " = " + FTS_CONTENT_TABLE + "."
-		+ FTSContentColumns.TASK_ID + ") where %s group by " + Tasks._ID + " having " + TaskContract.Tasks.SCORE + " > " + SEARCH_RESULTS_MIN_SCORE
+		+ FTSContentColumns.TASK_ID + ") where %s group by " + Tasks._ID + " having " + TaskContract.Tasks.SCORE + " >= " + SEARCH_RESULTS_MIN_SCORE
 		+ " order by %s;";
 
 	private final static String SQL_RAW_QUERY_SEARCH_TASK_DEFAULT_PROJECTION = Tables.INSTANCE_VIEW + ".* ," + FTS_NGRAM_TABLE + "." + NGramColumns.TEXT;
