@@ -47,12 +47,13 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 {
 	public final static String EXTRA_TASK_ID = "task_id";
 	public final static String EXTRA_TASK_START_TIME = "task_start";
+	public final static String EXTRA_TASK_START_ALLDAY = "task_start_allday";
 	public final static String EXTRA_TASK_TITLE = "task_title";
 
 	public final static String BROADCAST_START_ALARM = "org.dmfs.android.tasks.TASK_START";
 
 	private final static int REQUEST_CODE_START_ALARM = 1338;
-	private final static String[] PROJECTION = new String[] { Instances.TASK_ID, Instances.INSTANCE_START, Tasks.TITLE };
+	private final static String[] PROJECTION = new String[] { Instances.TASK_ID, Instances.INSTANCE_START, Tasks.TITLE, Tasks.IS_ALLDAY };
 
 
 	/**
@@ -155,7 +156,7 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 					while (cursor.moveToNext())
 					{
 						// inform the application
-						sendTaskStartAlarmBroadcast(context, cursor.getLong(0), cursor.getLong(1), cursor.getString(2));
+						sendTaskStartAlarmBroadcast(context, cursor.getLong(0), cursor.getLong(1), cursor.getInt(3) != 0, cursor.getString(2));
 					}
 				}
 				finally
@@ -194,12 +195,13 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 	 * @param taskTitle
 	 *            The title of the task.
 	 */
-	private static void sendTaskStartAlarmBroadcast(Context context, long taskId, long startDate, String taskTitle)
+	private static void sendTaskStartAlarmBroadcast(Context context, long taskId, long startDate, boolean isAllDay, String taskTitle)
 	{
 		Intent intent = new Intent(BROADCAST_START_ALARM);
 		intent.setData(ContentUris.withAppendedId(TaskContract.Tasks.getContentUri(context.getString(R.string.org_dmfs_tasks_authority)), taskId));
 		intent.putExtra(EXTRA_TASK_ID, taskId);
 		intent.putExtra(EXTRA_TASK_START_TIME, startDate);
+		intent.putExtra(EXTRA_TASK_START_ALLDAY, isAllDay);
 		intent.putExtra(EXTRA_TASK_TITLE, taskTitle);
 
 		context.sendBroadcast(intent);

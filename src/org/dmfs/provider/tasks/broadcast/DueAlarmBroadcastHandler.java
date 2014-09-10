@@ -48,12 +48,13 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 {
 	public final static String EXTRA_TASK_ID = "task_id";
 	public final static String EXTRA_TASK_DUE_TIME = "task_due";
+	public final static String EXTRA_TASK_DUE_ALLDAY = "task_due_allday";
 	public final static String EXTRA_TASK_TITLE = "task_title";
 
 	public final static String BROADCAST_DUE_ALARM = "org.dmfs.android.tasks.TASK_DUE";
 
 	private final static int REQUEST_CODE_DUE_ALARM = 1337;
-	private final static String[] PROJECTION = new String[] { Instances.TASK_ID, Instances.INSTANCE_DUE, Tasks.TITLE };
+	private final static String[] PROJECTION = new String[] { Instances.TASK_ID, Instances.INSTANCE_DUE, Tasks.TITLE, Tasks.IS_ALLDAY };
 
 
 	/**
@@ -156,7 +157,7 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 					while (cursor.moveToNext())
 					{
 						// inform the application
-						sendTaskDueAlarmBroadcast(context, cursor.getLong(0), cursor.getLong(1), cursor.getString(2));
+						sendTaskDueAlarmBroadcast(context, cursor.getLong(0), cursor.getLong(1), cursor.getInt(3) != 0, cursor.getString(2));
 					}
 				}
 				finally
@@ -196,12 +197,13 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 	 * @param taskTitle
 	 *            The title of the task.
 	 */
-	private static void sendTaskDueAlarmBroadcast(Context context, long taskId, long dueDate, String taskTitle)
+	private static void sendTaskDueAlarmBroadcast(Context context, long taskId, long dueDate, boolean isAllDay, String taskTitle)
 	{
 		Intent intent = new Intent(BROADCAST_DUE_ALARM);
 		intent.setData(ContentUris.withAppendedId(TaskContract.Tasks.getContentUri(context.getString(R.string.org_dmfs_tasks_authority)), taskId));
 		intent.putExtra(EXTRA_TASK_ID, taskId);
 		intent.putExtra(EXTRA_TASK_DUE_TIME, dueDate);
+		intent.putExtra(EXTRA_TASK_DUE_ALLDAY, isAllDay);
 		intent.putExtra(EXTRA_TASK_TITLE, taskTitle);
 		context.sendBroadcast(intent);
 	}
