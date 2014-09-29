@@ -46,15 +46,16 @@ import android.os.Build;
  */
 public class DueAlarmBroadcastHandler extends BroadcastReceiver
 {
-	public final static String EXTRA_TASK_ID = "task_id";
-	public final static String EXTRA_TASK_DUE_TIME = "task_due";
-	public final static String EXTRA_TASK_DUE_ALLDAY = "task_due_allday";
-	public final static String EXTRA_TASK_TITLE = "task_title";
+	public final static String EXTRA_TASK_ID = "org.dmfs.provider.tasks.extra.task_id";
+	public final static String EXTRA_TASK_DUE_TIME = "org.dmfs.provider.tasks.extra.task_due";
+	public final static String EXTRA_TASK_DUE_ALLDAY = "org.dmfs.provider.tasks.extra.task_due_allday";
+	public final static String EXTRA_TASK_TIMEZONE = "org.dmfs.provider.tasks.extra.task_timezone";
+	public final static String EXTRA_TASK_TITLE = "org.dmfs.provider.tasks.extra.task_title";
 
 	public final static String BROADCAST_DUE_ALARM = "org.dmfs.android.tasks.TASK_DUE";
 
 	private final static int REQUEST_CODE_DUE_ALARM = 1337;
-	private final static String[] PROJECTION = new String[] { Instances.TASK_ID, Instances.INSTANCE_DUE, Tasks.TITLE, Tasks.IS_ALLDAY };
+	private final static String[] PROJECTION = new String[] { Instances.TASK_ID, Instances.INSTANCE_DUE, Tasks.TITLE, Tasks.IS_ALLDAY, Tasks.TZ };
 
 
 	/**
@@ -79,13 +80,14 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 	 *            The title of the task.
 	 */
 	@TargetApi(19)
-	public static void setDueAlarm(Context context, long taskId, long dueTime, String taskTitle)
+	public static void setDueAlarm(Context context, long taskId, long dueTime, String taskTitle, String timezone)
 	{
 		AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
 		Intent intentAlarm = new Intent(context, DueAlarmBroadcastHandler.class);
 		intentAlarm.putExtra(EXTRA_TASK_ID, taskId);
 		intentAlarm.putExtra(EXTRA_TASK_DUE_TIME, dueTime);
 		intentAlarm.putExtra(EXTRA_TASK_TITLE, taskTitle);
+		intentAlarm.putExtra(EXTRA_TASK_TIMEZONE, timezone);
 		PendingIntent pendingIntent = PendingIntent.getBroadcast(context, REQUEST_CODE_DUE_ALARM, intentAlarm, PendingIntent.FLAG_UPDATE_CURRENT);
 
 		// AlarmManager API changed in v19 (KitKat) and the "set" method is not called at the exact time anymore
@@ -114,7 +116,7 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 	public static void setUpcomingDueAlarm(Context context, SQLiteDatabase db, long time)
 	{
 		// search for next upcoming instance which are open
-		String[] projection = new String[] { Instances.TASK_ID, Instances.INSTANCE_DUE, Tasks.TITLE };
+		String[] projection = new String[] { Instances.TASK_ID, Instances.INSTANCE_DUE, Instances.TITLE, Instances.TZ };
 		String selection = time + " <= " + Instances.INSTANCE_DUE + " AND " + Instances.IS_CLOSED + " = 0 AND " + Tasks._DELETED + "=0";
 		Cursor cursor = db.query(Tables.INSTANCE_VIEW, projection, selection, null, null, null, Instances.INSTANCE_DUE, "1");
 
@@ -122,7 +124,8 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 		{
 			if (cursor.moveToFirst())
 			{
-				setDueAlarm(context, cursor.getLong(0), cursor.getLong(1), cursor.getString(2));
+				String timezone = cursor.getString(3);
+				setDueAlarm(context, cursor.getLong(0), cursor.getLong(1), cursor.getString(2), timezone);
 			}
 		}
 		finally
@@ -157,7 +160,8 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 					while (cursor.moveToNext())
 					{
 						// inform the application
-						sendTaskDueAlarmBroadcast(context, cursor.getLong(0), cursor.getLong(1), cursor.getInt(3) != 0, cursor.getString(2));
+						sendTaskDueAlarmBroadcast(context, cursor.getLong(0), cursor.getLong(1), cursor.getInt(3) != 0, cursor.getString(2),
+							cursor.getString(4));
 					}
 				}
 				finally
@@ -197,7 +201,7 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 	 * @param taskTitle
 	 *            The title of the task.
 	 */
-	private static void sendTaskDueAlarmBroadcast(Context context, long taskId, long dueDate, boolean isAllDay, String taskTitle)
+	private static void sendTaskDueAlarmBroadcast(Context context, long taskId, long dueDate, boolean isAllDay, String taskTitle, String timezone)
 	{
 		Intent intent = new Intent(BROADCAST_DUE_ALARM);
 		intent.setData(ContentUris.withAppendedId(TaskContract.Tasks.getContentUri(context.getString(R.string.org_dmfs_tasks_authority)), taskId));
@@ -205,6 +209,7 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 		intent.putExtra(EXTRA_TASK_DUE_TIME, dueDate);
 		intent.putExtra(EXTRA_TASK_DUE_ALLDAY, isAllDay);
 		intent.putExtra(EXTRA_TASK_TITLE, taskTitle);
+		intent.putExtra(EXTRA_TASK_TIMEZONE, timezone);
 		context.sendBroadcast(intent);
 	}
 }
