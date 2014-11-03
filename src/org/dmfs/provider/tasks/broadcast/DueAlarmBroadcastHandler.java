@@ -17,6 +17,8 @@
 
 package org.dmfs.provider.tasks.broadcast;
 
+import java.util.TimeZone;
+
 import org.dmfs.provider.tasks.R;
 import org.dmfs.provider.tasks.TaskContract;
 import org.dmfs.provider.tasks.TaskContract.Instances;
@@ -35,6 +37,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.os.Build;
+import android.text.format.Time;
 
 
 /**
@@ -90,6 +93,9 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 		intentAlarm.putExtra(EXTRA_TASK_TIMEZONE, timezone);
 		PendingIntent pendingIntent = PendingIntent.getBroadcast(context, REQUEST_CODE_DUE_ALARM, intentAlarm, PendingIntent.FLAG_UPDATE_CURRENT);
 
+		// cancel old
+		am.cancel(PendingIntent.getBroadcast(context, REQUEST_CODE_DUE_ALARM, intentAlarm, PendingIntent.FLAG_UPDATE_CURRENT));
+
 		// AlarmManager API changed in v19 (KitKat) and the "set" method is not called at the exact time anymore
 		if (Build.VERSION.SDK_INT > 18)
 		{
@@ -115,23 +121,80 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 	 */
 	public static void setUpcomingDueAlarm(Context context, SQLiteDatabase db, long time)
 	{
+		// calculate allday due time
+		Time dueTime = new Time(TimeZone.getDefault().getID());
+		dueTime.set(time);
+
+		Time utcDueTime = new Time("UTC");
+		utcDueTime.set(dueTime.second, dueTime.minute, dueTime.hour, dueTime.monthDay, dueTime.month, dueTime.year);
+		long utcDueMillis = utcDueTime.toMillis(true);
+
+		Long nextTaskId = null;
+		Long nextTaskDueMillis = Long.MAX_VALUE;
+		String nextTaskTitle = null;
+		String nextTaskTimezone = null;
+
 		// search for next upcoming instance which are open
 		String[] projection = new String[] { Instances.TASK_ID, Instances.INSTANCE_DUE, Instances.TITLE, Instances.TZ };
-		String selection = time + " <= " + Instances.INSTANCE_DUE + " AND " + Instances.IS_CLOSED + " = 0 AND " + Tasks._DELETED + "=0";
+		String selection = time + " <= " + Instances.INSTANCE_DUE + " AND " + Instances.IS_CLOSED + " = 0 AND " + Tasks._DELETED + "= 0 AND "
+			+ Instances.IS_ALLDAY + " = 0";
 		Cursor cursor = db.query(Tables.INSTANCE_VIEW, projection, selection, null, null, null, Instances.INSTANCE_DUE, "1");
-
 		try
 		{
 			if (cursor.moveToFirst())
 			{
-				String timezone = cursor.getString(3);
-				setDueAlarm(context, cursor.getLong(0), cursor.getLong(1), cursor.getString(2), timezone);
+				nextTaskId = cursor.getLong(0);
+				nextTaskDueMillis = cursor.getLong(1);
+				nextTaskTitle = cursor.getString(2);
+				nextTaskTimezone = cursor.getString(3);
 			}
 		}
 		finally
 		{
 			cursor.close();
 		}
+
+		// search for next upcoming instance which are open and all day
+		selection = utcDueMillis + " <= " + Instances.INSTANCE_DUE + " AND " + Instances.IS_CLOSED + " = 0 AND " + Tasks._DELETED + "= 0 AND "
+			+ Instances.IS_ALLDAY + " = 1";
+		cursor = db.query(Tables.INSTANCE_VIEW, projection, selection, null, null, null, Instances.INSTANCE_DUE, "1");
+		try
+		{
+			if (cursor.moveToFirst())
+			{
+				Long allDayTaskId = cursor.getLong(0);
+				Long allDayTaskDueMillis = cursor.getLong(1);
+				String allDayTaskTitle = cursor.getString(2);
+
+				// compare the two tasks
+				Time utcTaskDueTime = new Time("UTC");
+				utcTaskDueTime.set(allDayTaskDueMillis);
+
+				Time taskDueTime = new Time(TimeZone.getDefault().getID());
+				taskDueTime.set(utcTaskDueTime.second, utcTaskDueTime.minute, utcTaskDueTime.hour, utcTaskDueTime.monthDay, utcTaskDueTime.month,
+					utcTaskDueTime.year);
+				allDayTaskDueMillis = taskDueTime.toMillis(true);
+
+				if (nextTaskId == null || nextTaskDueMillis > allDayTaskDueMillis)
+				{
+					setDueAlarm(context, allDayTaskId, allDayTaskDueMillis, allDayTaskTitle, TimeZone.getDefault().getID());
+				}
+				else
+				{
+					setDueAlarm(context, nextTaskId, nextTaskDueMillis, nextTaskTitle, nextTaskTimezone);
+				}
+			}
+			else if (nextTaskId != null)
+			{
+
+				setDueAlarm(context, nextTaskId, nextTaskDueMillis, nextTaskTitle, nextTaskTimezone);
+			}
+		}
+		finally
+		{
+			cursor.close();
+		}
+
 	}
 
 
@@ -148,11 +211,27 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 		{
 			if (intent.hasExtra(EXTRA_TASK_DUE_TIME))
 			{
-				// check for all tasks which are due since the due alarm was set plus 1 second
+
 				long currentDueTime = intent.getExtras().getLong(EXTRA_TASK_DUE_TIME);
 				long nextDueTime = currentDueTime + 1000;
-				String selection = nextDueTime + " > " + Instances.INSTANCE_DUE + " AND " + currentDueTime + " <= " + Instances.INSTANCE_DUE + " AND "
-					+ Instances.IS_CLOSED + " = 0 AND " + Tasks._DELETED + "=0";
+
+				// calculate UTC offset
+				Time dueTime = new Time(TimeZone.getDefault().getID());
+				dueTime.setToNow();
+				long defaultMillis = dueTime.toMillis(true);
+
+				Time utcDueTime = new Time("UTC");
+				utcDueTime.set(dueTime.second, dueTime.minute, dueTime.hour, dueTime.monthDay, dueTime.month, dueTime.year);
+				long offsetMillis = utcDueTime.toMillis(true) - defaultMillis;
+
+				long currentUTCDueTime = currentDueTime + offsetMillis;
+				long nextUTCDueTime = nextDueTime + offsetMillis;
+
+				// check for all tasks which are due since the start alarm was set plus 1 second
+				String selection = "(( " + nextDueTime + " > " + Instances.INSTANCE_DUE + " AND " + currentDueTime + " <= " + Instances.INSTANCE_DUE + " AND "
+					+ Instances.IS_ALLDAY + " = 0 ) or ( " + nextUTCDueTime + " > " + Instances.INSTANCE_DUE + " AND " + currentUTCDueTime + " <= "
+					+ Instances.INSTANCE_DUE + " AND " + Instances.IS_ALLDAY + " = 1 )) AND " + Instances.IS_CLOSED + " = 0 AND " + Tasks._DELETED + "=0";
+
 				Cursor cursor = db.query(Tables.INSTANCE_VIEW, PROJECTION, selection, null, null, null, Instances.INSTANCE_DUE);
 
 				try

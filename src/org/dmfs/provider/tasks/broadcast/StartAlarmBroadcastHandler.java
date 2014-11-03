@@ -17,6 +17,8 @@
 
 package org.dmfs.provider.tasks.broadcast;
 
+import java.util.TimeZone;
+
 import org.dmfs.provider.tasks.R;
 import org.dmfs.provider.tasks.TaskContract;
 import org.dmfs.provider.tasks.TaskContract.Instances;
@@ -35,6 +37,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.os.Build;
+import android.text.format.Time;
 
 
 /**
@@ -87,6 +90,9 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 		intentAlarm.putExtra(EXTRA_TASK_TITLE, taskTitle);
 		PendingIntent pendingIntent = PendingIntent.getBroadcast(context, REQUEST_CODE_START_ALARM, intentAlarm, PendingIntent.FLAG_UPDATE_CURRENT);
 
+		// cancel old
+		am.cancel(PendingIntent.getBroadcast(context, REQUEST_CODE_START_ALARM, intentAlarm, PendingIntent.FLAG_UPDATE_CURRENT));
+
 		// AlarmManager API changed in v19 (KitKat) and the "set" method is not called at the exact time anymore
 		if (Build.VERSION.SDK_INT > 18)
 		{
@@ -113,15 +119,72 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 	public static void setUpcomingStartAlarm(Context context, SQLiteDatabase db, long time)
 	{
 		// search for next upcoming instance which are open
-		String[] projection = new String[] { Instances.TASK_ID, Instances.INSTANCE_START, Tasks.TITLE };
-		String selection = time + " <= " + Instances.INSTANCE_START + " AND " + Instances.IS_CLOSED + " = 0 AND " + Tasks._DELETED + "=0";
-		Cursor cursor = db.query(Tables.INSTANCE_VIEW, projection, selection, null, null, null, Instances.INSTANCE_START, "1");
+		String[] projection = new String[] { Instances.TASK_ID, Instances.INSTANCE_START, Tasks.TITLE, Instances.TZ };
+		String selection = time + " <= " + Instances.INSTANCE_START + " AND " + Instances.IS_CLOSED + " = 0 AND " + Tasks._DELETED + "= 0 AND "
+			+ Instances.IS_ALLDAY + " = 0";
 
+		// calculate allday start time
+		Time startTime = new Time(TimeZone.getDefault().getID());
+		startTime.set(time);
+
+		Time utcStartTime = new Time("UTC");
+		utcStartTime.set(startTime.second, startTime.minute, startTime.hour, startTime.monthDay, startTime.month, startTime.year);
+		long utcStartMillis = utcStartTime.toMillis(true);
+
+		Long nextTaskId = null;
+		Long nextTaskStartMillis = Long.MAX_VALUE;
+		String nextTaskTitle = null;
+
+		// search for next upcoming instance which are open
+		Cursor cursor = db.query(Tables.INSTANCE_VIEW, projection, selection, null, null, null, Instances.INSTANCE_START, "1");
 		try
 		{
 			if (cursor.moveToFirst())
 			{
-				setStartAlarm(context, cursor.getLong(0), cursor.getLong(1), cursor.getString(2));
+				nextTaskId = cursor.getLong(0);
+				nextTaskStartMillis = cursor.getLong(1);
+				nextTaskTitle = cursor.getString(2);
+			}
+		}
+		finally
+		{
+			cursor.close();
+		}
+
+		// search for next upcoming instance which are open and all day
+		selection = utcStartMillis + " <= " + Instances.INSTANCE_START + " AND " + Instances.IS_CLOSED + " = 0 AND " + Tasks._DELETED + "= 0 AND "
+			+ Instances.IS_ALLDAY + " = 1";
+		cursor = db.query(Tables.INSTANCE_VIEW, projection, selection, null, null, null, Instances.INSTANCE_DUE, "1");
+		try
+		{
+			if (cursor.moveToFirst())
+			{
+				Long allDayTaskId = cursor.getLong(0);
+				Long allDayTaskStartMillis = cursor.getLong(1);
+				String allDayTaskTitle = cursor.getString(2);
+
+				// compare the two tasks
+				Time utcTaskStartTime = new Time("UTC");
+				utcTaskStartTime.set(allDayTaskStartMillis);
+
+				Time taskStartTime = new Time(TimeZone.getDefault().getID());
+				taskStartTime.set(utcTaskStartTime.second, utcTaskStartTime.minute, utcTaskStartTime.hour, utcTaskStartTime.monthDay, utcTaskStartTime.month,
+					utcTaskStartTime.year);
+				allDayTaskStartMillis = taskStartTime.toMillis(true);
+
+				if (nextTaskId == null || nextTaskStartMillis > allDayTaskStartMillis)
+				{
+					setStartAlarm(context, allDayTaskId, allDayTaskStartMillis, allDayTaskTitle);
+				}
+				else
+				{
+					setStartAlarm(context, nextTaskId, nextTaskStartMillis, nextTaskTitle);
+				}
+			}
+			else if (nextTaskId != null)
+			{
+
+				setStartAlarm(context, nextTaskId, nextTaskStartMillis, nextTaskTitle);
 			}
 		}
 		finally
@@ -144,11 +207,26 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 		{
 			if (intent.hasExtra(EXTRA_TASK_START_TIME))
 			{
-				// check for all tasks which are due since the start alarm was set plus 1 second
 				long currentStartTime = intent.getExtras().getLong(EXTRA_TASK_START_TIME);
 				long nextStartTime = currentStartTime + 1000;
-				String selection = nextStartTime + " > " + Instances.INSTANCE_START + " AND " + currentStartTime + " <= " + Instances.INSTANCE_START + " AND "
-					+ Instances.IS_CLOSED + " = 0 AND " + Tasks._DELETED + "=0";
+
+				// calculate UTC offset
+				Time startTime = new Time(TimeZone.getDefault().getID());
+				startTime.setToNow();
+				long defaultMillis = startTime.toMillis(true);
+
+				Time utcStartTime = new Time("UTC");
+				utcStartTime.set(startTime.second, startTime.minute, startTime.hour, startTime.monthDay, startTime.month, startTime.year);
+				long offsetMillis = utcStartTime.toMillis(true) - defaultMillis;
+
+				long currentUTCStartTime = currentStartTime + offsetMillis;
+				long nextUTCStartTime = nextStartTime + offsetMillis;
+
+				// check for all tasks which are due since the start alarm was set plus 1 second
+				String selection = "(( " + nextStartTime + " > " + Instances.INSTANCE_START + " AND " + currentStartTime + " <= " + Instances.INSTANCE_START
+					+ " AND " + Instances.IS_ALLDAY + " = 0 ) or ( " + nextUTCStartTime + " > " + Instances.INSTANCE_START + " AND " + currentUTCStartTime
+					+ " <= " + Instances.INSTANCE_START + " AND " + Instances.IS_ALLDAY + " = 1 )) AND " + Instances.IS_CLOSED + " = 0 AND " + Tasks._DELETED
+					+ "=0";
 				Cursor cursor = db.query(Tables.INSTANCE_VIEW, PROJECTION, selection, null, null, null, Instances.INSTANCE_START);
 
 				try
