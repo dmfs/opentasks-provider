@@ -44,7 +44,10 @@ public final class NGramGenerator
 	private final int mMinWordLen;
 	private boolean mAllLowercase = true;
 	private boolean mReturnNumbers = true;
+	private boolean mAddSpaceInFront = false;
 	private Locale mLocale = Locale.getDefault();
+
+	private char[] mTempArray;
 
 
 	public NGramGenerator(int n)
@@ -57,12 +60,35 @@ public final class NGramGenerator
 	{
 		mN = n;
 		mMinWordLen = minWordLen;
+		mTempArray = new char[n];
+		mTempArray[0] = ' ';
 	}
 
 
+	/**
+	 * Set whether to convert all words to lower-case first.
+	 * 
+	 * @param lowercase
+	 *            true to convert the test to lower case first.
+	 * @return This instance.
+	 */
 	public NGramGenerator setAllLowercase(boolean lowercase)
 	{
 		mAllLowercase = lowercase;
+		return this;
+	}
+
+
+	/**
+	 * Set whether to index the beginning of a word with a space in front. This slightly raises the weight of word beginnings when searching.
+	 * 
+	 * @param addSpace
+	 *            <code>true</code> to add a space in front of each word, <code>false</code> otherwise.
+	 * @return This instance.
+	 */
+	public NGramGenerator setAddSpaceInFront(boolean addSpace)
+	{
+		mAddSpaceInFront = addSpace;
 		return this;
 	}
 
@@ -91,6 +117,24 @@ public final class NGramGenerator
 	 */
 	public Set<String> getNgrams(String data)
 	{
+		Set<String> result = new HashSet<String>(128);
+
+		return getNgrams(result, data);
+	}
+
+
+	/**
+	 * Get all N-grams contained in the given String.
+	 * 
+	 * @param set
+	 *            The set to add all the N-grams to, or <code>null</code> to create a new set.
+	 * @param data
+	 *            The String to analyze.
+	 * 
+	 * @return The {@link Set} containing the N-grams.
+	 */
+	public Set<String> getNgrams(Set<String> set, String data)
+	{
 		if (mAllLowercase)
 		{
 			data = data.toLowerCase(mLocale);
@@ -98,14 +142,17 @@ public final class NGramGenerator
 
 		String[] words = mReturnNumbers ? SEPARATOR_PATTERN.split(data) : SEPARATOR_PATTERN_NO_NUMBERS.split(data);
 
-		Set<String> result = new HashSet<String>(128);
+		if (set == null)
+		{
+			set = new HashSet<String>(128);
+		}
 
 		for (String word : words)
 		{
-			getNgrams(word, result);
+			getNgrams(word, set);
 		}
 
-		return result;
+		return set;
 	}
 
 
@@ -125,6 +172,27 @@ public final class NGramGenerator
 		for (int i = 0; i < last; ++i)
 		{
 			ngrams.add(word.substring(i, Math.min(i + n, len)));
+		}
+
+		if (mAddSpaceInFront)
+		{
+			/*
+			 * Add another String with a space and the first n-1 characters of the word.
+			 * 
+			 * We could just call
+			 * 
+			 * ngrams.add(" " + word.substring(0, Math.min(len, n - 1));
+			 * 
+			 * But it's probably way more efficient like this:
+			 */
+			char[] tempArray = mTempArray;
+
+			int count = Math.min(len, n - 1);
+			for (int i = 0; i < count; ++i)
+			{
+				tempArray[i + 1] = word.charAt(i);
+			}
+			ngrams.add(new String(tempArray));
 		}
 	}
 }
