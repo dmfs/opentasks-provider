@@ -55,6 +55,9 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 	public final static String EXTRA_TASK_TIMEZONE = "org.dmfs.provider.tasks.extra.task_timezone";
 	public final static String EXTRA_TASK_TITLE = "org.dmfs.provider.tasks.extra.task_title";
 
+	/** The boolean notification extra to deliver notifications silently. eg. for follow up notifications **/
+	public final static String EXTRA_SILENT_NOTIFICATION = "org.dmfs.provider.tasks.extra.silent_notification";
+
 	public final static String BROADCAST_DUE_ALARM = "org.dmfs.android.tasks.TASK_DUE";
 
 	private final static int REQUEST_CODE_DUE_ALARM = 1337;
@@ -117,7 +120,6 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 	 *            The {@link SQLiteDatabase}.
 	 * @param time
 	 *            The absolute minimum time in milliseconds when the next alarm can be due.
-	 * 
 	 */
 	public static void setUpcomingDueAlarm(Context context, SQLiteDatabase db, long time)
 	{
@@ -211,6 +213,7 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 		{
 			if (intent.hasExtra(EXTRA_TASK_DUE_TIME))
 			{
+				boolean silent = intent.getExtras().getBoolean(EXTRA_SILENT_NOTIFICATION, false);
 
 				long currentDueTime = intent.getExtras().getLong(EXTRA_TASK_DUE_TIME);
 				long nextDueTime = currentDueTime + 1000;
@@ -240,7 +243,7 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 					{
 						// inform the application
 						sendTaskDueAlarmBroadcast(context, cursor.getLong(0), cursor.getLong(1), cursor.getInt(3) != 0, cursor.getString(2),
-							cursor.getString(4));
+							cursor.getString(4), silent);
 					}
 				}
 				finally
@@ -279,8 +282,11 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 	 *            The date in milliseconds when the task is due.
 	 * @param taskTitle
 	 *            The title of the task.
+	 * @param silent
+	 *            Indicates to deliver notifications silently.
 	 */
-	private static void sendTaskDueAlarmBroadcast(Context context, long taskId, long dueDate, boolean isAllDay, String taskTitle, String timezone)
+	private static void sendTaskDueAlarmBroadcast(Context context, long taskId, long dueDate, boolean isAllDay, String taskTitle, String timezone,
+		boolean silent)
 	{
 		Intent intent = new Intent(BROADCAST_DUE_ALARM);
 		intent.setData(ContentUris.withAppendedId(TaskContract.Tasks.getContentUri(context.getString(R.string.org_dmfs_tasks_authority)), taskId));
@@ -289,6 +295,7 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 		intent.putExtra(EXTRA_TASK_DUE_ALLDAY, isAllDay);
 		intent.putExtra(EXTRA_TASK_TITLE, taskTitle);
 		intent.putExtra(EXTRA_TASK_TIMEZONE, timezone);
+		intent.putExtra(EXTRA_SILENT_NOTIFICATION, silent);
 		context.sendBroadcast(intent);
 	}
 }

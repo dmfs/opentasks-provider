@@ -53,6 +53,9 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 	public final static String EXTRA_TASK_START_ALLDAY = "task_start_allday";
 	public final static String EXTRA_TASK_TITLE = "task_title";
 
+	/** The boolean notification extra to deliver notifications silently. eg. for follow up notifications **/
+	public final static String EXTRA_SILENT_NOTIFICATION = "org.dmfs.provider.tasks.extra.silent_notification";
+
 	public final static String BROADCAST_START_ALARM = "org.dmfs.android.tasks.TASK_START";
 
 	private final static int REQUEST_CODE_START_ALARM = 1338;
@@ -114,7 +117,6 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 	 *            The {@link SQLiteDatabase}.
 	 * @param time
 	 *            The absolute minimum time in milliseconds when the next alarm stars.
-	 * 
 	 */
 	public static void setUpcomingStartAlarm(Context context, SQLiteDatabase db, long time)
 	{
@@ -205,6 +207,8 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 
 		try
 		{
+			boolean silent = intent.getExtras().getBoolean(EXTRA_SILENT_NOTIFICATION, false);
+
 			if (intent.hasExtra(EXTRA_TASK_START_TIME))
 			{
 				long currentStartTime = intent.getExtras().getLong(EXTRA_TASK_START_TIME);
@@ -234,7 +238,7 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 					while (cursor.moveToNext())
 					{
 						// inform the application
-						sendTaskStartAlarmBroadcast(context, cursor.getLong(0), cursor.getLong(1), cursor.getInt(3) != 0, cursor.getString(2));
+						sendTaskStartAlarmBroadcast(context, cursor.getLong(0), cursor.getLong(1), cursor.getInt(3) != 0, cursor.getString(2), silent);
 					}
 				}
 				finally
@@ -272,8 +276,10 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 	 *            The date in milliseconds when the task starts.
 	 * @param taskTitle
 	 *            The title of the task.
+	 * @param silent
+	 *            Indicates to deliver notifications silently.
 	 */
-	private static void sendTaskStartAlarmBroadcast(Context context, long taskId, long startDate, boolean isAllDay, String taskTitle)
+	private static void sendTaskStartAlarmBroadcast(Context context, long taskId, long startDate, boolean isAllDay, String taskTitle, boolean silent)
 	{
 		Intent intent = new Intent(BROADCAST_START_ALARM);
 		intent.setData(ContentUris.withAppendedId(TaskContract.Tasks.getContentUri(context.getString(R.string.org_dmfs_tasks_authority)), taskId));
@@ -281,6 +287,7 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 		intent.putExtra(EXTRA_TASK_START_TIME, startDate);
 		intent.putExtra(EXTRA_TASK_START_ALLDAY, isAllDay);
 		intent.putExtra(EXTRA_TASK_TITLE, taskTitle);
+		intent.putExtra(EXTRA_SILENT_NOTIFICATION, silent);
 
 		context.sendBroadcast(intent);
 	}
