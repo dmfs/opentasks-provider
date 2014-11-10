@@ -44,9 +44,14 @@ public class FTSDatabaseHelper
 	private final static float SEARCH_RESULTS_MIN_SCORE = 0.4f;
 
 	/**
-	 * A Generator for ngrams.
+	 * A Generator for 3-grams.
 	 */
-	private final static NGramGenerator NGRAM_GENERATOR = new NGramGenerator(3, 1);
+	private final static NGramGenerator TRIGRAM_GENERATOR = new NGramGenerator(3, 1).setAddSpaceInFront(true);
+
+	/**
+	 * A Generator for 4-grams.
+	 */
+	private final static NGramGenerator TETRAGRAM_GENERATOR = new NGramGenerator(4, 3 /* shorter words are fully covered by trigrams */).setAddSpaceInFront(true);
 
 	/**
 	 * Search content columns. Defines all the columns for the full text search
@@ -360,7 +365,9 @@ public class FTSDatabaseHelper
 		if (searchableText != null && searchableText.length() > 0)
 		{
 			// generate nGrams
-			Set<String> propertyNgrams = NGRAM_GENERATOR.getNgrams(searchableText);
+			Set<String> propertyNgrams = TRIGRAM_GENERATOR.getNgrams(searchableText);
+
+			TETRAGRAM_GENERATOR.getNgrams(propertyNgrams, searchableText);
 
 			// insert ngrams
 			Set<Long> propertyNgramIds = insertNGrams(db, propertyNgrams);
@@ -466,11 +473,12 @@ public class FTSDatabaseHelper
 			selectionBuilder.append(" (");
 		}
 
-		Set<String> ngrams = NGRAM_GENERATOR.getNgrams(searchString);
+		Set<String> ngrams = TRIGRAM_GENERATOR.getNgrams(searchString);
+		TETRAGRAM_GENERATOR.getNgrams(ngrams, searchString);
 
 		String[] queryArgs;
 
-		if (searchString != null && searchString.length() > 2)
+		if (searchString != null && searchString.length() > 1)
 		{
 
 			selectionBuilder.append(NGramColumns.TEXT);
@@ -516,13 +524,13 @@ public class FTSDatabaseHelper
 				queryArgs = new String[selectionArgs.length + 2];
 				queryArgs[0] = String.valueOf(ngrams.size());
 				System.arraycopy(selectionArgs, 0, queryArgs, 1, selectionArgs.length);
-				queryArgs[queryArgs.length - 1] = searchString + "%";
+				queryArgs[queryArgs.length - 1] = " " + searchString + "%";
 			}
 			else
 			{
 				queryArgs = new String[2];
 				queryArgs[0] = String.valueOf(ngrams.size());
-				queryArgs[1] = searchString + "%";
+				queryArgs[1] = " " + searchString + "%";
 			}
 
 		}
