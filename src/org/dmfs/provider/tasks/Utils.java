@@ -47,7 +47,7 @@ public class Utils
 {
 	public static void sendActionProviderChangedBroadCast(Context context, String authority)
 	{
-		Intent providerChangedIntent = new Intent(Intent.ACTION_PROVIDER_CHANGED, TaskContract.getContentUri(authority));
+		Intent providerChangedIntent = new Intent(Intent.ACTION_PROVIDER_CHANGED, Tasks.getContentUri(authority));
 		context.sendBroadcast(providerChangedIntent);
 	}
 
