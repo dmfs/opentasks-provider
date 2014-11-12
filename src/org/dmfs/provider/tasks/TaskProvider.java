@@ -1612,7 +1612,6 @@ public final class TaskProvider extends SQLiteContentProvider
 			case INSTANCES:
 				return ContentResolver.CURSOR_DIR_BASE_TYPE + "/" + mAuthority + "." + Instances.CONTENT_URI_PATH;
 			default:
-				Thread.dumpStack();
 				throw new IllegalArgumentException("Unsupported URI: " + uri);
 		}
 	}
