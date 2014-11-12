@@ -47,7 +47,9 @@ public class Utils
 {
 	public static void sendActionProviderChangedBroadCast(Context context, String authority)
 	{
-		Intent providerChangedIntent = new Intent(Intent.ACTION_PROVIDER_CHANGED, Tasks.getContentUri(authority));
+		// TODO: Using the TaskContract content uri results in a "Unknown URI content" error message. Using the Tasks content uri instead will break the
+		// broadcast receiver. We have to find away around this
+		Intent providerChangedIntent = new Intent(Intent.ACTION_PROVIDER_CHANGED, TaskContract.getContentUri(authority));
 		context.sendBroadcast(providerChangedIntent);
 	}
 
