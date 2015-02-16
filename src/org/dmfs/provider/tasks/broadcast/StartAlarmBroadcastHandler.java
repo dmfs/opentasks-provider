@@ -48,6 +48,8 @@ import android.text.format.Time;
  */
 public class StartAlarmBroadcastHandler extends BroadcastReceiver
 {
+	private final static String ACTION_QUICKBOOT_POWERON = "android.intent.action.QUICKBOOT_POWERON";
+
 	public final static String EXTRA_TASK_ID = "task_id";
 	public final static String EXTRA_TASK_START_TIME = "task_start";
 	public final static String EXTRA_TASK_START_ALLDAY = "task_start_allday";
@@ -249,7 +251,7 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 				// Set the next alarm
 				setUpcomingStartAlarm(context, db, nextStartTime);
 			}
-			else if (intent.getAction().equals(Intent.ACTION_BOOT_COMPLETED))
+			else if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction()) || ACTION_QUICKBOOT_POWERON.equals(intent.getAction()))
 			{
 				// device booted -> set upcoming alarm
 				setUpcomingStartAlarm(context, db, System.currentTimeMillis());

@@ -49,6 +49,9 @@ import android.text.format.Time;
  */
 public class DueAlarmBroadcastHandler extends BroadcastReceiver
 {
+
+	private final static String ACTION_QUICKBOOT_POWERON = "android.intent.action.QUICKBOOT_POWERON";
+
 	public final static String EXTRA_TASK_ID = "org.dmfs.provider.tasks.extra.task_id";
 	public final static String EXTRA_TASK_DUE_TIME = "org.dmfs.provider.tasks.extra.task_due";
 	public final static String EXTRA_TASK_DUE_ALLDAY = "org.dmfs.provider.tasks.extra.task_due_allday";
@@ -213,9 +216,9 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 		{
 			if (intent.hasExtra(EXTRA_TASK_DUE_TIME))
 			{
-				boolean silent = intent.getExtras().getBoolean(EXTRA_SILENT_NOTIFICATION, false);
+				boolean silent = intent.getBooleanExtra(EXTRA_SILENT_NOTIFICATION, false);
 
-				long currentDueTime = intent.getExtras().getLong(EXTRA_TASK_DUE_TIME);
+				long currentDueTime = intent.getLongExtra(EXTRA_TASK_DUE_TIME, System.currentTimeMillis());
 				long nextDueTime = currentDueTime + 1000;
 
 				// calculate UTC offset
@@ -254,7 +257,7 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 				// Set the next alarm
 				setUpcomingDueAlarm(context, db, nextDueTime);
 			}
-			else if (intent.getAction().equals(Intent.ACTION_BOOT_COMPLETED))
+			else if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction()) || ACTION_QUICKBOOT_POWERON.equals(intent.getAction()))
 			{
 				// device booted -> set upcoming alarm
 				setUpcomingDueAlarm(context, db, System.currentTimeMillis());
