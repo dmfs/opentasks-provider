@@ -207,11 +207,11 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 
 		try
 		{
-			boolean silent = intent.getExtras().getBoolean(EXTRA_SILENT_NOTIFICATION, false);
+			boolean silent = intent.getBooleanExtra(EXTRA_SILENT_NOTIFICATION, false);
 
 			if (intent.hasExtra(EXTRA_TASK_START_TIME))
 			{
-				long currentStartTime = intent.getExtras().getLong(EXTRA_TASK_START_TIME);
+				long currentStartTime = intent.getLongExtra(EXTRA_TASK_START_TIME, System.currentTimeMillis());
 				long nextStartTime = currentStartTime + 1000;
 
 				// calculate UTC offset
