@@ -584,7 +584,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			// insert initial list
 			db.execSQL("insert into " + Tables.LISTS + " (" + TaskLists.ACCOUNT_TYPE + ", " + TaskLists.ACCOUNT_NAME + ", " + TaskLists.LIST_NAME + ", "
 				+ TaskLists.LIST_COLOR + ", " + TaskLists.VISIBLE + ", " + TaskLists.SYNC_ENABLED + ", " + TaskLists.OWNER + ") VALUES (?,?,?,?,?,?,?) ",
-				new Object[] { TaskContract.LOCAL_ACCOUNT, "Local", "Task list", Color.rgb(0, 0, 255), 1, 1, "" });
+				new Object[] { TaskContract.LOCAL_ACCOUNT, "Local", "Task list", Color.rgb(30, 136, 229) /* material blue 600 */, 1, 1, "" });
 		}
 	}
 
