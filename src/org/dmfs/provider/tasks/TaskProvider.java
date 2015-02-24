@@ -42,6 +42,9 @@ import org.dmfs.provider.tasks.broadcast.DueAlarmBroadcastHandler;
 import org.dmfs.provider.tasks.broadcast.StartAlarmBroadcastHandler;
 import org.dmfs.provider.tasks.handler.PropertyHandler;
 import org.dmfs.provider.tasks.handler.PropertyHandlerFactory;
+import org.dmfs.provider.tasks.taskhooks.AbstractTaskHook;
+import org.dmfs.provider.tasks.taskhooks.RelationUpdaterHook;
+import org.dmfs.provider.tasks.taskhooks.TestHook;
 
 import android.annotation.TargetApi;
 import android.content.ContentResolver;
@@ -59,7 +62,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.text.TextUtils;
 import android.text.format.Time;
-import android.util.Log;
 
 
 /**
@@ -106,6 +108,14 @@ public final class TaskProvider extends SQLiteContentProvider
 	private final static Set<String> TASK_LIST_SYNC_COLUMNS = new HashSet<String>(Arrays.asList(TaskLists.SYNC_ADAPTER_COLUMNS));
 
 	/**
+	 * A list of {@link AbstractTaskHook} to execute on any modification of a task.
+	 * <p>
+	 * TODO: allow dynamic configuration of the hooks.
+	 * </p>
+	 */
+	private final static AbstractTaskHook[] TASK_HOOKS = { new RelationUpdaterHook(), new TestHook() };
+
+	/**
 	 * A helper to check {@link Integer} values for equality with <code>1</code>. You can use it like
 	 * 
 	 * <pre>
@@ -131,6 +141,11 @@ public final class TaskProvider extends SQLiteContentProvider
 	private String mAuthority;
 
 	private UriMatcher mUriMatcher;
+
+	private interface HookExecutor
+	{
+		public void execute(AbstractTaskHook hook);
+	}
 
 
 	@Override
@@ -611,7 +626,7 @@ public final class TaskProvider extends SQLiteContentProvider
 
 
 	@Override
-	public int deleteInTransaction(Uri uri, String selection, String[] selectionArgs, boolean isSyncAdapter)
+	public int deleteInTransaction(Uri uri, String selection, String[] selectionArgs, final boolean isSyncAdapter)
 	{
 		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
 		int count = 0;
@@ -655,29 +670,78 @@ public final class TaskProvider extends SQLiteContentProvider
 				selection = updateSelection(selectId(uri), selection);
 
 			case TASKS:
+			{
 				// TODO: filter by account name and type if present in uri.
+
+				final ContentValues values = new ContentValues();
+
 				if (isSyncAdapter)
 				{
 					if (TextUtils.isEmpty(accountType) || TextUtils.isEmpty(accountName))
 					{
 						throw new IllegalArgumentException("Sync adapters must specify an account and account type: " + uri);
 					}
-
-					// only sync adapters can delete tasks
-					count = db.delete(Tables.TASKS, selection, selectionArgs);
 				}
 				else
 				{
 					// mark task as deleted and dirty, the sync adapter will remove it later
-					ContentValues values = new ContentValues();
 					values.put(TaskSyncColumns._DELETED, true);
 					values.put(CommonSyncColumns._DIRTY, true);
-					count = db.update(Tables.TASKS, values, selection, selectionArgs);
+				}
+
+				// iterate over all tasks that match the selection. We iterate "manually" to execute any hooks before or after deletion.
+				final Cursor cursor = db.query(Tables.TASKS, null, selection, selectionArgs, null, null, null, null);
+				if (cursor != null)
+				{
+					try
+					{
+						while (cursor.moveToNext())
+						{
+							final long taskId = cursor.getLong(0);
+
+							// execute beforeDelete hooks
+							executeHooks(new HookExecutor()
+							{
+								@Override
+								public void execute(AbstractTaskHook hook)
+								{
+									hook.beforeDelete(db, taskId, cursor, isSyncAdapter);
+								}
+							});
+
+							String[] taskSelectionArgs = new String[] { Long.toString(taskId) };
+
+							if (isSyncAdapter)
+							{
+								// delete this task
+								count += db.delete(Tables.TASKS, TASK_ID_SELECTION, taskSelectionArgs);
+							}
+							else
+							{
+								// update this task
+								count += db.update(Tables.TASKS, values, TASK_ID_SELECTION, taskSelectionArgs);
+							}
+
+							// execute afterDelete hooks
+							executeHooks(new HookExecutor()
+							{
+								@Override
+								public void execute(AbstractTaskHook hook)
+								{
+									hook.afterDelete(db, taskId, isSyncAdapter);
+								}
+							});
+						}
+					}
+					finally
+					{
+						cursor.close();
+					}
 
 					updateNotifications();
 				}
 				break;
-
+			}
 			case ALARM_ID:
 				// add id to selection and fall through
 				selection = updateSelection(selectId(uri), selection);
@@ -696,7 +760,7 @@ public final class TaskProvider extends SQLiteContentProvider
 
 				try
 				{
-					while (cursor.moveToFirst())
+					while (cursor.moveToNext())
 					{
 						long propertyId = cursor.getLong(0);
 						long taskId = cursor.getLong(1);
@@ -730,7 +794,7 @@ public final class TaskProvider extends SQLiteContentProvider
 
 
 	@Override
-	public Uri insertInTransaction(Uri uri, ContentValues values, boolean isSyncAdapter)
+	public Uri insertInTransaction(Uri uri, final ContentValues values, final boolean isSyncAdapter)
 	{
 		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
 		long rowId = 0;
@@ -777,11 +841,33 @@ public final class TaskProvider extends SQLiteContentProvider
 					values.put(TaskColumns.LAST_MODIFIED, currentMillis);
 				}
 
+				// execute beforeInsert hook
+				executeHooks(new HookExecutor()
+				{
+					@Override
+					public void execute(AbstractTaskHook hook)
+					{
+						hook.beforeInsert(db, values, isSyncAdapter);
+					}
+				});
+
 				// insert task
 				rowId = db.insert(Tables.TASKS, "", values);
 
 				// add entries to Instances
 				createInstances(db, uri, values, rowId);
+
+				final long rid = rowId;
+
+				// execute afterInsert hook
+				executeHooks(new HookExecutor()
+				{
+					@Override
+					public void execute(AbstractTaskHook hook)
+					{
+						hook.afterInsert(db, rid, values, isSyncAdapter);
+					}
+				});
 
 				// insert FTS entries
 				FTSDatabaseHelper.updateTaskFTSEntries(db, rowId, values);
@@ -837,7 +923,7 @@ public final class TaskProvider extends SQLiteContentProvider
 
 	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
 	@Override
-	public int updateInTransaction(Uri uri, ContentValues values, String selection, String[] selectionArgs, boolean isSyncAdapter)
+	public int updateInTransaction(Uri uri, final ContentValues values, String selection, String[] selectionArgs, final boolean isSyncAdapter)
 	{
 		final SQLiteDatabase db = mDBHelper.getWritableDatabase();
 		int count = 0;
@@ -857,7 +943,12 @@ public final class TaskProvider extends SQLiteContentProvider
 				count = db.update(Tables.LISTS, values, newListSelection, selectionArgs);
 				break;
 
+			case TASK_ID:
+				// update selection and fall through
+				selection = updateSelection(selectId(uri), selection);
+
 			case TASKS:
+			{
 				// validate tasks
 				validateTaskValues(db, values, false, isSyncAdapter);
 
@@ -868,32 +959,53 @@ public final class TaskProvider extends SQLiteContentProvider
 					values.put(TaskColumns.LAST_MODIFIED, System.currentTimeMillis());
 				}
 
-				// perform updates
-				count = db.update(Tables.TASKS, values, selection, selectionArgs);
-
-				// update related instances
-				updateInstancesOfAllTasks(db, values, selection, selectionArgs);
-
-				updateNotifications();
-				break;
-
-			case TASK_ID:
-				String newSelection = updateSelection(selectId(uri), selection);
-
-				validateTaskValues(db, values, false, isSyncAdapter);
-
-				if (!isSyncAdapter)
+				// iterate over all tasks that match the selection. We iterate "manually" to execute any hooks before or after insert.
+				final Cursor cursor = db.query(Tables.TASKS, null, selection, selectionArgs, null, null, null, null);
+				if (cursor != null)
 				{
-					// mark task as dirty
-					values.put(CommonSyncColumns._DIRTY, true);
-					values.put(TaskColumns.LAST_MODIFIED, System.currentTimeMillis());
+					try
+					{
+						while (cursor.moveToNext())
+						{
+							final long taskId = cursor.getLong(0);
+
+							// execute beforeUpdate hooks
+							executeHooks(new HookExecutor()
+							{
+								@Override
+								public void execute(AbstractTaskHook hook)
+								{
+									hook.beforeUpdate(db, taskId, cursor, values, isSyncAdapter);
+								}
+							});
+
+							String[] taskSelectionArgs = new String[] { Long.toString(taskId) };
+
+							// update this task
+							count += db.update(Tables.TASKS, values, TASK_ID_SELECTION, taskSelectionArgs);
+							updateInstancesOfOneTask(db, taskId, values, TASK_ID_SELECTION, taskSelectionArgs);
+
+							// execute afterUpdate hooks
+							executeHooks(new HookExecutor()
+							{
+								@Override
+								public void execute(AbstractTaskHook hook)
+								{
+									hook.afterUpdate(db, taskId, cursor, values, isSyncAdapter);
+								}
+							});
+						}
+					}
+					finally
+					{
+						cursor.close();
+					}
 				}
-				count = db.update(Tables.TASKS, values, newSelection, selectionArgs);
-				String taskSelection = updateSelection(selectTaskId(uri), selection).toString();
-				updateInstancesOfOneTask(db, getId(uri), values, taskSelection, selectionArgs);
 
 				updateNotifications();
 				break;
+			}
+
 			case PROPERTY_ID:
 				selection = updateSelection(selectPropertyId(uri), selection);
 
@@ -918,7 +1030,7 @@ public final class TaskProvider extends SQLiteContentProvider
 
 				try
 				{
-					while (cursor.moveToFirst())
+					while (cursor.moveToNext())
 					{
 						long propertyId = cursor.getLong(0);
 						long taskId = cursor.getLong(1);
@@ -1097,55 +1209,6 @@ public final class TaskProvider extends SQLiteContentProvider
 	}
 
 
-	/**
-	 * Updates the instances of all tasks that match the given selection.
-	 * <p>
-	 * This has to cover the following cases:
-	 * </p>
-	 * <ol>
-	 * <li>No columns that affect instances have been changed, in that case there is nothing to do.</li>
-	 * <li>The selection contains a single instance task and the new values don't add recurrence, in that case only this instance has to be updated.</li>
-	 * <li>The selection contains a single instance task and the new values add recurrence, in that case the first instance is to be updated and all other
-	 * instances are to be expanded.</li>
-	 * <li>The selection contains a recurring task and the new values change recurrence, in that case all instances have to be updated.</li>
-	 * <li>The selection contains a recurring task and the new values remove recurrence, in that case the first instance has to be updated and all recurring
-	 * instances have to be removed.</li>
-	 * <li>The selection contains an exception and the new values don't add recurrence, in that case update the single exception instance.</li>
-	 * <li>The selection contains an exception and the new values add recurrence, at present this is not allowed, throw an exception.</li>
-	 * </ol>
-	 * 
-	 * TODO: implement the cases above.
-	 * 
-	 * @param values
-	 *            The new task {@link ContentValues}.
-	 * @param selection
-	 *            The selection string.
-	 * @param selectionArgs
-	 *            The selection arguments.
-	 */
-	private void updateInstancesOfAllTasks(SQLiteDatabase db, ContentValues values, String selection, String[] selectionArgs)
-	{
-		Log.i("UPDATE_INSTANCE", "In updateInstanceOfAllTask");
-		Cursor cursor = db.query(Tables.TASKS, TASK_ID_PROJECTION, selection, selectionArgs, null, null, null, null);
-		if (cursor != null)
-		{
-			try
-			{
-				while (cursor.moveToNext())
-				{
-					long taskId = cursor.getLong(0);
-					String taskSelection = updateSelection(selectTaskId(taskId), selection).toString();
-					updateInstancesOfOneTask(db, taskId, values, taskSelection, selectionArgs);
-				}
-			}
-			finally
-			{
-				cursor.close();
-			}
-		}
-	}
-
-
 	private void updateInstancesOfOneTask(SQLiteDatabase db, long task_id, ContentValues values, String selection, String[] selectionArgs)
 	{
 		// check if either one of the following has been updated: DTSTART, DUE, DURATION, RRULE, RDATE, EXDATE
@@ -1158,8 +1221,6 @@ public final class TaskProvider extends SQLiteContentProvider
 		 * 
 		 * All values must be given! DTSTART + DURATION -> DUE must be omitted DSTART + DUE -> DURATION must be omitted
 		 */
-
-		Log.i("UPDATE_INSTANCE", "In updateInstanceOfOneTask");
 
 		ContentValues instanceValues = setInstanceTimes(values);
 		instanceValues.put(Instances.TASK_ID, task_id);
@@ -1589,6 +1650,21 @@ public final class TaskProvider extends SQLiteContentProvider
 		if (values.containsKey(Alarms.ALARM_ID))
 		{
 			throw new IllegalArgumentException("ALARM_ID can not be set manually");
+		}
+	}
+
+
+	/**
+	 * Execute the given {@link HookExecutor} for all task hooks.
+	 * 
+	 * @param executor
+	 *            The {@link HookExecutor} to execute;
+	 */
+	private void executeHooks(HookExecutor executor)
+	{
+		for (AbstractTaskHook hook : TASK_HOOKS)
+		{
+			executor.execute(hook);
 		}
 	}
 

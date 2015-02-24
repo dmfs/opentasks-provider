@@ -1310,6 +1310,13 @@ public final class TaskContract
 			public final static String LANGUAGE = DATA1;
 		}
 
+		/**
+		 * Relations of a task.
+		 * <p>
+		 * When writing a relation, exactly one of {@link #RELATED_ID}, {@link #RELATED_UID} or {@link #RELATED_URI} must be given. {@link #RELATED_CONTENT_URI}
+		 * will be populated automatically if possible.
+		 * </p>
+		 */
 		public static interface Relation extends PropertyColumns
 		{
 			/**
@@ -1317,9 +1324,93 @@ public final class TaskContract
 			 */
 			public final static String CONTENT_ITEM_TYPE = ContentResolver.CURSOR_ITEM_BASE_TYPE + "/relation";
 
+			/**
+			 * The row id of the related task. May be <code>-1</code> if the property doesn't refer to a task in this database or if it doesn't refer to a task
+			 * at all.
+			 * <p>
+			 * Value: long
+			 * </p>
+			 */
 			public final static String RELATED_ID = DATA1;
 
+			/**
+			 * The relation type. This must be the ordinal value of a {@link RelType}.
+			 * <p>
+			 * Value: int
+			 * </p>
+			 */
 			public final static String RELATED_TYPE = DATA2;
+
+			/**
+			 * The UID of the related object.
+			 * <p>
+			 * Value: String
+			 * </p>
+			 */
+			public final static String RELATED_UID = DATA3;
+
+			/**
+			 * The URI of a related object.
+			 * <p>
+			 * Value: String (URI)
+			 * </p>
+			 */
+			public final static String RELATED_URI = DATA4;
+
+			/**
+			 * The URI of a related object in another Android content provider. If the object is a task in this database, this is <code>null</code>. If the
+			 * related object is an event or note this field may contain the content URI to the object.
+			 * <p>
+			 * Value: String (URI)
+			 * </p>
+			 * <p>
+			 * This field is read-only.
+			 * </p>
+			 */
+			public final static String RELATED_CONTENT_URI = DATA5;
+
+			/**
+			 * An optional gap value for temporal relationships.
+			 * <p>
+			 * Value: duration string
+			 * </p>
+			 */
+			public final static String GAP = DATA6;
+
+			/**
+			 * Valid values for the {@link Relation#RELATED_TYPE} field. Note that the field actually takes the ordinal value of these.
+			 */
+			public enum RelType
+			{
+				/**
+				 * The related object is the parent of the object owning this relation.
+				 */
+				PARENT,
+
+				/**
+				 * The related object is the child of the object owning this relation.
+				 */
+				CHILD,
+
+				/**
+				 * The related object is a sibling of the object owning this relation.
+				 */
+				SIBLING,
+
+				DEPENDS_ON,
+
+				REFID,
+
+				STRUCTURED_CATEGORY,
+
+				FINISHTOSTART,
+
+				FINISHTOFINISH,
+
+				STARTTOFINISH,
+
+				STARTTOSTART;
+			}
 		}
 
 		public static interface Alarm extends PropertyColumns

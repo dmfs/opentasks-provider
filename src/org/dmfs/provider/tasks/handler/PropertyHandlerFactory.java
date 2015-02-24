@@ -19,6 +19,7 @@ package org.dmfs.provider.tasks.handler;
 
 import org.dmfs.provider.tasks.TaskContract.Property.Alarm;
 import org.dmfs.provider.tasks.TaskContract.Property.Category;
+import org.dmfs.provider.tasks.TaskContract.Property.Relation;
 
 
 /**
@@ -31,6 +32,7 @@ public class PropertyHandlerFactory
 {
 	private final static PropertyHandler CATEGORY_HANDLER = new CategoryHandler();
 	private final static PropertyHandler ALARM_HANDLER = new AlarmHandler();
+	private final static PropertyHandler RELATION_HANDLER = new RelationHandler();
 	private final static PropertyHandler DEFAULT_PROPERTY_HANDLER = new DefaultPropertyHandler();
 
 
@@ -50,6 +52,10 @@ public class PropertyHandlerFactory
 		if (Alarm.CONTENT_ITEM_TYPE.equals(mimeType))
 		{
 			return ALARM_HANDLER;
+		}
+		if (Relation.CONTENT_ITEM_TYPE.equals(mimeType))
+		{
+			return RELATION_HANDLER;
 		}
 		return DEFAULT_PROPERTY_HANDLER;
 	}

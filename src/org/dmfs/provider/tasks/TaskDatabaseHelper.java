@@ -48,7 +48,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	/**
 	 * The database version.
 	 */
-	static final int DATABASE_VERSION = 8;
+	static final int DATABASE_VERSION = 9;
 
 	/**
 	 * List of all tables we provide.
@@ -295,6 +295,16 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		+ " DELETE FROM " + Tables.ALARMS + " WHERE " + TaskContract.Alarms.ALARM_ID + "= OLD." + TaskContract.Properties.PROPERTY_ID + ";"
 		+ " END;";
 
+
+	/**
+	 * SQL command to create a trigger to clean up property data of removed task.
+	 */
+	private final static String SQL_CREATE_TASK_PROPERTY_CLEANUP_TRIGGER =
+		"CREATE TRIGGER task_property_cleanup_trigger AFTER DELETE ON " + Tables.TASKS + " BEGIN "
+		+ " DELETE FROM " + Tables.PROPERTIES + " WHERE " + Properties.TASK_ID + "= OLD." + Tasks._ID + ";"
+		+ " END;";
+
+	
 	
 	/**
 	 * SQL command to create the task list table.
@@ -365,6 +375,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			+ TaskContract.Tasks._DIRTY + " INTEGER DEFAULT 1," // a new task is always dirty
 			+ TaskContract.Tasks._DELETED + " INTEGER DEFAULT 0," // new tasks are not deleted by default
 			+ TaskContract.Tasks._SYNC_ID + " TEXT,"
+			+ TaskContract.Tasks._UID + " TEXT,"
 			+ TaskContract.Tasks.SYNC_VERSION + " TEXT,"
 			+ TaskContract.Tasks.SYNC1 + " TEXT,"
 			+ TaskContract.Tasks.SYNC2 + " TEXT,"
@@ -576,6 +587,9 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		db.execSQL(SQL_CREATE_ALARM_COUNT_UPDATE_TRIGGER);
 		db.execSQL(SQL_CREATE_ALARM_COUNT_DELETE_TRIGGER);
 
+		// add cleanup trigger for orphaned properties
+		db.execSQL(SQL_CREATE_TASK_PROPERTY_CLEANUP_TRIGGER);
+
 		// initialze FTS
 		FTSDatabaseHelper.onCreate(db);
 
@@ -674,7 +688,13 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			// replace priority 0 by null. We need this to sort the widget properly. Since 0 is the default this is no problem when syncing.
 			db.execSQL("update " + Tables.TASKS + " set " + Tasks.PRIORITY + "=null where " + Tasks.PRIORITY + "=0;");
 		}
-
+		if (oldVersion < 9)
+		{
+			// add missing column _UID
+			db.execSQL("alter table " + Tables.TASKS + " add column " + Tasks._UID + " integer;");
+			// add cleanup trigger for orphaned properties
+			db.execSQL(SQL_CREATE_TASK_PROPERTY_CLEANUP_TRIGGER);
+		}
 		// upgrade FTS
 		FTSDatabaseHelper.onUpgrade(db, oldVersion, newVersion);
 
