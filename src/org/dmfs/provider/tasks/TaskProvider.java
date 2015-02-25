@@ -63,6 +63,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.text.TextUtils;
 import android.text.format.Time;
+import android.util.Log;
 
 
 /**
@@ -1663,10 +1664,12 @@ public final class TaskProvider extends SQLiteContentProvider
 	 */
 	private void executeHooks(HookExecutor executor)
 	{
+		long start = System.currentTimeMillis();
 		for (AbstractTaskHook hook : TASK_HOOKS)
 		{
 			executor.execute(hook);
 		}
+		Log.d("TaskProvider", "time to process hooks " + (System.currentTimeMillis() - start) + " ms");
 	}
 
 
