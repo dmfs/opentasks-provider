@@ -44,6 +44,7 @@ import org.dmfs.provider.tasks.handler.PropertyHandler;
 import org.dmfs.provider.tasks.handler.PropertyHandlerFactory;
 import org.dmfs.provider.tasks.taskhooks.AbstractTaskHook;
 import org.dmfs.provider.tasks.taskhooks.RelationUpdaterHook;
+import org.dmfs.provider.tasks.taskhooks.RemoveLocalTasksHook;
 import org.dmfs.provider.tasks.taskhooks.TestHook;
 
 import android.annotation.TargetApi;
@@ -113,7 +114,7 @@ public final class TaskProvider extends SQLiteContentProvider
 	 * TODO: allow dynamic configuration of the hooks.
 	 * </p>
 	 */
-	private final static AbstractTaskHook[] TASK_HOOKS = { new RelationUpdaterHook(), new TestHook() };
+	private final static AbstractTaskHook[] TASK_HOOKS = { new RelationUpdaterHook(), new RemoveLocalTasksHook(), new TestHook() };
 
 	/**
 	 * A helper to check {@link Integer} values for equality with <code>1</code>. You can use it like
@@ -690,7 +691,7 @@ public final class TaskProvider extends SQLiteContentProvider
 				}
 
 				// iterate over all tasks that match the selection. We iterate "manually" to execute any hooks before or after deletion.
-				final Cursor cursor = db.query(Tables.TASKS, null, selection, selectionArgs, null, null, null, null);
+				final Cursor cursor = db.query(Tables.TASKS_VIEW, null, selection, selectionArgs, null, null, null, null);
 				if (cursor != null)
 				{
 					try
@@ -960,7 +961,7 @@ public final class TaskProvider extends SQLiteContentProvider
 				}
 
 				// iterate over all tasks that match the selection. We iterate "manually" to execute any hooks before or after insert.
-				final Cursor cursor = db.query(Tables.TASKS, null, selection, selectionArgs, null, null, null, null);
+				final Cursor cursor = db.query(Tables.TASKS_VIEW, null, selection, selectionArgs, null, null, null, null);
 				if (cursor != null)
 				{
 					try
