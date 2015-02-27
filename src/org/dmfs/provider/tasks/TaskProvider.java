@@ -693,55 +693,64 @@ public final class TaskProvider extends SQLiteContentProvider
 
 				// iterate over all tasks that match the selection. We iterate "manually" to execute any hooks before or after deletion.
 				final Cursor cursor = db.query(Tables.TASKS_VIEW, null, selection, selectionArgs, null, null, null, null);
-				if (cursor != null)
+
+				int idCol = cursor.getColumnIndex(Tasks._ID);
+
+				// we use a StringBuilder that we can recycle in case multiple tasks are deleted at once
+				// even if there is only one task to delete, this won't cause any overhead
+				StringBuilder selectionBuilder = new StringBuilder(Tasks._ID);
+				selectionBuilder.append("=");
+				int selectionBaseLen = selectionBuilder.length();
+
+				try
 				{
-					try
+					while (cursor.moveToNext())
 					{
-						while (cursor.moveToNext())
+						final long taskId = cursor.getLong(idCol);
+
+						// execute beforeDelete hooks
+						executeHooks(new HookExecutor()
 						{
-							final long taskId = cursor.getLong(0);
-
-							// execute beforeDelete hooks
-							executeHooks(new HookExecutor()
+							@Override
+							public void execute(AbstractTaskHook hook)
 							{
-								@Override
-								public void execute(AbstractTaskHook hook)
-								{
-									hook.beforeDelete(db, taskId, cursor, isSyncAdapter);
-								}
-							});
-
-							String[] taskSelectionArgs = new String[] { Long.toString(taskId) };
-
-							if (isSyncAdapter)
-							{
-								// delete this task
-								count += db.delete(Tables.TASKS, TASK_ID_SELECTION, taskSelectionArgs);
+								hook.beforeDelete(db, taskId, cursor, isSyncAdapter);
 							}
-							else
-							{
-								// update this task
-								count += db.update(Tables.TASKS, values, TASK_ID_SELECTION, taskSelectionArgs);
-							}
+						});
 
-							// execute afterDelete hooks
-							executeHooks(new HookExecutor()
-							{
-								@Override
-								public void execute(AbstractTaskHook hook)
-								{
-									hook.afterDelete(db, taskId, isSyncAdapter);
-								}
-							});
+						selectionBuilder.setLength(selectionBaseLen);
+						selectionBuilder.append(taskId);
+
+						String taskIdSelection = selectionBuilder.toString();
+
+						if (isSyncAdapter)
+						{
+							// delete this task
+							count += db.delete(Tables.TASKS, taskIdSelection, null);
 						}
-					}
-					finally
-					{
-						cursor.close();
-					}
+						else
+						{
+							// update this task
+							count += db.update(Tables.TASKS, values, taskIdSelection, null);
+						}
 
-					updateNotifications();
+						// execute afterDelete hooks
+						executeHooks(new HookExecutor()
+						{
+							@Override
+							public void execute(AbstractTaskHook hook)
+							{
+								hook.afterDelete(db, taskId, isSyncAdapter);
+							}
+						});
+					}
 				}
+				finally
+				{
+					cursor.close();
+				}
+
+				updateNotifications();
 				break;
 			}
 			case ALARM_ID:
@@ -963,45 +972,53 @@ public final class TaskProvider extends SQLiteContentProvider
 
 				// iterate over all tasks that match the selection. We iterate "manually" to execute any hooks before or after insert.
 				final Cursor cursor = db.query(Tables.TASKS_VIEW, null, selection, selectionArgs, null, null, null, null);
-				if (cursor != null)
+
+				int idCol = cursor.getColumnIndex(Tasks._ID);
+
+				// we use a StringBuilder that we can recycle in case multiple tasks are deleted at once
+				// even if there is only one task to delete, this won't cause any overhead
+				StringBuilder selectionBuilder = new StringBuilder(Tasks._ID);
+				selectionBuilder.append("=");
+				int selectionBaseLen = selectionBuilder.length();
+				try
 				{
-					try
+					while (cursor.moveToNext())
 					{
-						while (cursor.moveToNext())
+						final long taskId = cursor.getLong(idCol);
+
+						// execute beforeUpdate hooks
+						executeHooks(new HookExecutor()
 						{
-							final long taskId = cursor.getLong(0);
-
-							// execute beforeUpdate hooks
-							executeHooks(new HookExecutor()
+							@Override
+							public void execute(AbstractTaskHook hook)
 							{
-								@Override
-								public void execute(AbstractTaskHook hook)
-								{
-									hook.beforeUpdate(db, taskId, cursor, values, isSyncAdapter);
-								}
-							});
+								hook.beforeUpdate(db, taskId, cursor, values, isSyncAdapter);
+							}
+						});
 
-							String[] taskSelectionArgs = new String[] { Long.toString(taskId) };
+						selectionBuilder.setLength(selectionBaseLen);
+						selectionBuilder.append(taskId);
 
-							// update this task
-							count += db.update(Tables.TASKS, values, TASK_ID_SELECTION, taskSelectionArgs);
-							updateInstancesOfOneTask(db, taskId, values, TASK_ID_SELECTION, taskSelectionArgs);
+						String taskIdSelection = selectionBuilder.toString();
 
-							// execute afterUpdate hooks
-							executeHooks(new HookExecutor()
+						// update this task
+						count += db.update(Tables.TASKS, values, taskIdSelection, null);
+						updateInstancesOfOneTask(db, taskId, values, taskIdSelection, null);
+
+						// execute afterUpdate hooks
+						executeHooks(new HookExecutor()
+						{
+							@Override
+							public void execute(AbstractTaskHook hook)
 							{
-								@Override
-								public void execute(AbstractTaskHook hook)
-								{
-									hook.afterUpdate(db, taskId, cursor, values, isSyncAdapter);
-								}
-							});
-						}
+								hook.afterUpdate(db, taskId, cursor, values, isSyncAdapter);
+							}
+						});
 					}
-					finally
-					{
-						cursor.close();
-					}
+				}
+				finally
+				{
+					cursor.close();
 				}
 
 				updateNotifications();
