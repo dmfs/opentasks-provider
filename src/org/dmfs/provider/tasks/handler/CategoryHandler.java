@@ -199,13 +199,15 @@ public class CategoryHandler extends PropertyHandler
 	 *            The id of the property.
 	 * @param values
 	 *            The {@link ContentValues} to update.
+	 * @param oldValues
+	 *            A {@link Cursor} pointing to the old values in the database.
 	 * @param isSyncAdapter
 	 *            Indicates that the transaction was triggered from a SyncAdapter.
 	 * 
 	 * @return The number of rows affected.
 	 */
 	@Override
-	public int update(SQLiteDatabase db, long taskId, long propertyId, ContentValues values, boolean isSyncAdapter)
+	public int update(SQLiteDatabase db, long taskId, long propertyId, ContentValues values, Cursor oldValues, boolean isSyncAdapter)
 	{
 		values = validateValues(db, taskId, propertyId, false, values, isSyncAdapter);
 		values = getOrInsertCategory(db, values);
@@ -216,7 +218,7 @@ public class CategoryHandler extends PropertyHandler
 			updateFTSEntry(db, taskId, propertyId, values.getAsString(Category.CATEGORY_NAME));
 		}
 
-		return super.update(db, taskId, propertyId, values, isSyncAdapter);
+		return super.update(db, taskId, propertyId, values, oldValues, isSyncAdapter);
 	}
 
 

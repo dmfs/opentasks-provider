@@ -101,7 +101,6 @@ public final class TaskProvider extends SQLiteContentProvider
 	private static final String[] TASK_ID_PROJECTION = { Tasks._ID };
 	private static final String[] TASK_SYNC_ID_PROJECTION = { Tasks._SYNC_ID };
 	private static final String[] TASKLIST_ID_PROJECTION = { TaskLists._ID };
-	private static final String[] PROPERTY_PROJECTION = { Properties.PROPERTY_ID, Properties.TASK_ID, Properties.MIMETYPE };
 
 	private static final String SYNC_ID_SELECTION = Tasks._SYNC_ID + "=?";
 	private static final String TASK_ID_SELECTION = Tasks._ID + "=?";
@@ -767,19 +766,22 @@ public final class TaskProvider extends SQLiteContentProvider
 
 			case PROPERTIES:
 				// fetch all properties that match the selection
-				Cursor cursor = db.query(Tables.PROPERTIES, PROPERTY_PROJECTION, selection, selectionArgs, null, null, null);
+				Cursor cursor = db.query(Tables.PROPERTIES, null, selection, selectionArgs, null, null, null);
 
 				try
 				{
+					int propIdCol = cursor.getColumnIndex(Properties.PROPERTY_ID);
+					int taskIdCol = cursor.getColumnIndex(Properties.TASK_ID);
+					int mimeTypeCol = cursor.getColumnIndex(Properties.MIMETYPE);
 					while (cursor.moveToNext())
 					{
-						long propertyId = cursor.getLong(0);
-						long taskId = cursor.getLong(1);
-						String mimeType = cursor.getString(2);
+						long propertyId = cursor.getLong(propIdCol);
+						long taskId = cursor.getLong(taskIdCol);
+						String mimeType = cursor.getString(mimeTypeCol);
 						if (mimeType != null)
 						{
 							PropertyHandler handler = PropertyHandlerFactory.get(mimeType);
-							count += handler.delete(db, taskId, propertyId, isSyncAdapter);
+							count += handler.delete(db, taskId, propertyId, cursor, isSyncAdapter);
 						}
 					}
 				}
@@ -1045,19 +1047,22 @@ public final class TaskProvider extends SQLiteContentProvider
 				}
 
 				// fetch all properties that match the selection
-				Cursor cursor = db.query(Tables.PROPERTIES, PROPERTY_PROJECTION, selection, selectionArgs, null, null, null);
+				Cursor cursor = db.query(Tables.PROPERTIES, null, selection, selectionArgs, null, null, null);
 
 				try
 				{
+					int propIdCol = cursor.getColumnIndex(Properties.PROPERTY_ID);
+					int taskIdCol = cursor.getColumnIndex(Properties.TASK_ID);
+					int mimeTypeCol = cursor.getColumnIndex(Properties.MIMETYPE);
 					while (cursor.moveToNext())
 					{
-						long propertyId = cursor.getLong(0);
-						long taskId = cursor.getLong(1);
-						String mimeType = cursor.getString(2);
+						long propertyId = cursor.getLong(propIdCol);
+						long taskId = cursor.getLong(taskIdCol);
+						String mimeType = cursor.getString(mimeTypeCol);
 						if (mimeType != null)
 						{
 							PropertyHandler handler = PropertyHandlerFactory.get(mimeType);
-							count += handler.update(db, taskId, propertyId, values, isSyncAdapter);
+							count += handler.update(db, taskId, propertyId, values, cursor, isSyncAdapter);
 						}
 					}
 				}

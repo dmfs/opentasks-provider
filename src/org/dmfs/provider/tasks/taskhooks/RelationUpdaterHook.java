@@ -35,6 +35,7 @@ import android.database.sqlite.SQLiteDatabase;
  * <p>
  * It also updates {@link Relation#RELATED_UID} when a tasks is synced the first time.
  * </p>
+ * TODO: update {@link Tasks#PARENT_ID} of related tasks.
  * 
  * @author Marten Gajda <marten@dmfs.org>
  */

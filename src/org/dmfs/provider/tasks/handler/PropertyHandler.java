@@ -22,6 +22,7 @@ import org.dmfs.provider.tasks.TaskContract.Properties;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
 
 import android.content.ContentValues;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
 
@@ -89,12 +90,14 @@ public abstract class PropertyHandler
 	 *            The id of the property.
 	 * @param values
 	 *            The {@link ContentValues} to update.
+	 * @param oldValues
+	 *            A {@link Cursor} pointing to the old values in the database.
 	 * @param isSyncAdapter
 	 *            Indicates that the transaction was triggered from a SyncAdapter.
 	 * 
 	 * @return The number of rows affected.
 	 */
-	public int update(SQLiteDatabase db, long taskId, long propertyId, ContentValues values, boolean isSyncAdapter)
+	public int update(SQLiteDatabase db, long taskId, long propertyId, ContentValues values, Cursor oldValues, boolean isSyncAdapter)
 	{
 		return db.update(Tables.PROPERTIES, values, Properties.PROPERTY_ID + "=" + propertyId, null);
 	}
@@ -109,11 +112,13 @@ public abstract class PropertyHandler
 	 *            The id of the task this property belongs to.
 	 * @param propertyId
 	 *            The id of the property.
+	 * @param oldValues
+	 *            A {@link Cursor} pointing to the old values in the database.
 	 * @param isSyncAdapter
 	 *            Indicates that the transaction was triggered from a SyncAdapter.
 	 * @return
 	 */
-	public int delete(SQLiteDatabase db, long taskId, long propertyId, boolean isSyncAdapter)
+	public int delete(SQLiteDatabase db, long taskId, long propertyId, Cursor oldValues, boolean isSyncAdapter)
 	{
 		return db.delete(Tables.PROPERTIES, Properties.PROPERTY_ID + "=" + propertyId, null);
 
