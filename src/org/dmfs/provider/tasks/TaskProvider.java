@@ -730,7 +730,12 @@ public final class TaskProvider extends SQLiteContentProvider
 						else
 						{
 							// update this task
-							count += db.update(Tables.TASKS, values, taskIdSelection, null);
+							db.update(Tables.TASKS, values, taskIdSelection, null);
+							/*
+							 * For local tasks, this would return 0, because they will be removed in beforeDelete. To ensure the cursors are refreshed, we count
+							 * manually.
+							 */
+							count++;
 						}
 
 						// execute afterDelete hooks
