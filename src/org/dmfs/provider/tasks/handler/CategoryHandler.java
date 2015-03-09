@@ -179,8 +179,8 @@ public class CategoryHandler extends PropertyHandler
 		values = getOrInsertCategory(db, values);
 
 		// insert property row and create relation
-		insertRelation(db, taskId, values.getAsLong(Category.CATEGORY_ID));
 		long id = super.insert(db, taskId, values, isSyncAdapter);
+		insertRelation(db, taskId, values.getAsLong(Category.CATEGORY_ID), id);
 
 		// update FTS entry with category name
 		updateFTSEntry(db, taskId, id, values.getAsString(Category.CATEGORY_NAME));
@@ -266,11 +266,12 @@ public class CategoryHandler extends PropertyHandler
 	 *            The row id of the category.
 	 * @return The row id of the inserted relation.
 	 */
-	private long insertRelation(SQLiteDatabase db, long taskId, long categoryId)
+	private long insertRelation(SQLiteDatabase db, long taskId, long categoryId, long propertyId)
 	{
-		ContentValues relationValues = new ContentValues(2);
+		ContentValues relationValues = new ContentValues(3);
 		relationValues.put(CategoriesMapping.TASK_ID, taskId);
 		relationValues.put(CategoriesMapping.CATEGORY_ID, categoryId);
+		relationValues.put(CategoriesMapping.PROPERTY_ID, propertyId);
 		return db.insert(Tables.CATEGORIES_MAPPING, "", relationValues);
 	}
 }

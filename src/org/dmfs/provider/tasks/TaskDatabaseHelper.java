@@ -19,6 +19,7 @@ package org.dmfs.provider.tasks;
 
 import org.dmfs.provider.tasks.TaskContract.Properties;
 import org.dmfs.provider.tasks.TaskContract.Property.Alarm;
+import org.dmfs.provider.tasks.TaskContract.Property.Category;
 import org.dmfs.provider.tasks.TaskContract.TaskLists;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 
@@ -48,7 +49,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	/**
 	 * The database version.
 	 */
-	static final int DATABASE_VERSION = 9;
+	static final int DATABASE_VERSION = 10;
 
 	/**
 	 * List of all tables we provide.
@@ -91,6 +92,9 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		public static final String TASK_ID = "task_id";
 
 		public static final String CATEGORY_ID = "category_id";
+
+		public static final String PROPERTY_ID = "property_id";
+
 	}
 
 	// @formatter:off
@@ -297,6 +301,17 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 
 
 	/**
+	 * SQL command to create a trigger to clean up data of removed property.
+	 */
+	private final static String SQL_CREATE_CATEGORY_PROPERTY_CLEANUP_TRIGGER =
+		"CREATE TRIGGER category_property_cleanup_trigger AFTER DELETE ON " + Tables.PROPERTIES + " WHEN OLD." + Properties.MIMETYPE + " = '" + Category.CONTENT_ITEM_TYPE + "'"  
+		+ " BEGIN "
+		+ " DELETE FROM " + Tables.CATEGORIES_MAPPING + " WHERE " + CategoriesMapping.PROPERTY_ID + "= OLD." + TaskContract.Properties.PROPERTY_ID + ";"
+		+ " END;";
+
+
+	
+	/**
 	 * SQL command to create a trigger to clean up property data of removed task.
 	 */
 	private final static String SQL_CREATE_TASK_PROPERTY_CLEANUP_TRIGGER =
@@ -405,7 +420,9 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		"CREATE TABLE " + Tables.CATEGORIES_MAPPING
 		+ " ( " + CategoriesMapping.TASK_ID + " INTEGER,"
 		+ CategoriesMapping.CATEGORY_ID + " INTEGER,"
+		+ CategoriesMapping.PROPERTY_ID + " INTEGER,"
 		+ "FOREIGN KEY (" + CategoriesMapping.TASK_ID +") REFERENCES "+ Tables.TASKS + "(" + TaskContract.Tasks._ID + "),"
+		+ "FOREIGN KEY (" + CategoriesMapping.PROPERTY_ID +") REFERENCES "+ Tables.PROPERTIES + "(" + TaskContract.Properties.PROPERTY_ID + "),"
 		+ "FOREIGN KEY (" + CategoriesMapping.CATEGORY_ID + ") REFERENCES " + Tables.CATEGORIES + "(" + TaskContract.Categories._ID + "));";
 	
 	
@@ -694,6 +711,14 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			db.execSQL("alter table " + Tables.TASKS + " add column " + Tasks._UID + " integer;");
 			// add cleanup trigger for orphaned properties
 			db.execSQL(SQL_CREATE_TASK_PROPERTY_CLEANUP_TRIGGER);
+		}
+		if (oldVersion < 10)
+		{
+			// add property column to categories_mapping table. Since adding a constraint is not supported by SQLite we have to remove and recreate the entire
+			// table
+			db.execSQL("drop table " + Tables.CATEGORIES_MAPPING);
+			db.execSQL(SQL_CREATE_CATEGORIES_MAPPING_TABLE);
+			db.execSQL(SQL_CREATE_CATEGORY_PROPERTY_CLEANUP_TRIGGER);
 		}
 		// upgrade FTS
 		FTSDatabaseHelper.onUpgrade(db, oldVersion, newVersion);
