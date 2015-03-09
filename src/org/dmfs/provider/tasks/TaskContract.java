@@ -1189,12 +1189,20 @@ public final class TaskContract
 			public final static String CONTENT_ITEM_TYPE = ContentResolver.CURSOR_ITEM_BASE_TYPE + "/attachment";
 
 			/**
-			 * ID of the attachment. Use this id to store and retrieve the attachment in the attachments table.
+			 * URL of the attachment. This is the link that points to the attached resource.
 			 * <p>
-			 * Value: Long
+			 * Value: String
 			 * </p>
 			 */
-			public final static String ATTACHMENT_ID = DATA1;
+			public final static String URL = DATA1;
+
+			/**
+			 * The display name of the attachment, if any.
+			 * <p>
+			 * Value: String
+			 * </p>
+			 */
+			public final static String DISPLAY_NAME = DATA2;
 
 			/**
 			 * Content-type of the attachment.
@@ -1202,7 +1210,25 @@ public final class TaskContract
 			 * Value: String
 			 * </p>
 			 */
-			public final static String FORMAT = DATA2;
+			public final static String FORMAT = DATA3;
+
+			/**
+			 * File size of the attachment or <code>-1</code> if unknown.
+			 * <p>
+			 * Value: Long
+			 * </p>
+			 */
+			public final static String SIZE = DATA4;
+
+			/**
+			 * A content {@link Uri} that can be used to retrieve the attachment. Sync adapters can set this field if they know how to download the attachment
+			 * without going through the browser.
+			 * <p>
+			 * Value: String
+			 * </p>
+			 */
+			public final static String CONTENT_URI = DATA5;
+
 		}
 
 		public static interface Attendee extends PropertyColumns
