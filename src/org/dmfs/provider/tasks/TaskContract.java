@@ -691,13 +691,37 @@ public final class TaskContract
 		public static final String SORTING = "sorting";
 
 		/**
-		 * Indicates how many alarms a task has. <code>0</code> means the task has no alarms.
+		 * Indicates how many alarms a task has. <code>0</code> means the task has no alarms. This field is read only as it's set automatically.
 		 * <p>
 		 * Value: Integer
 		 * </p>
-		 * 
+		 * Read-only
 		 */
 		public static final String HAS_ALARMS = "has_alarms";
+
+		/**
+		 * Indicates that this task has extended properties like attachments, alarms or relations. This field is read only as it's set automatically.
+		 * <p>
+		 * Value: Integer
+		 * </p>
+		 * <p>
+		 * read-only
+		 * </p>
+		 */
+		public static final String HAS_PROPERTIES = "has_properties";
+
+		/**
+		 * Indicates that this task has been pinned to the notification area. This flag is moved to the exception when an exception for the first instance of a
+		 * recurring task is created. That means, if you edit a pinned recurring task, the pinned flag is moved to the exception and cleared from the master
+		 * task.
+		 * <p>
+		 * Value: Integer
+		 * </p>
+		 * <p>
+		 * read-only
+		 * </p>
+		 */
+		public static final String PINNED = "pinned";
 	}
 
 	/**

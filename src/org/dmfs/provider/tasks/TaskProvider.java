@@ -1495,6 +1495,18 @@ public final class TaskProvider extends SQLiteContentProvider
 			throw new IllegalArgumentException("modification of IS_CLOSED is not allowed");
 		}
 
+		// HAS_PROPERTIES is set automatically
+		if (values.containsKey(TaskColumns.HAS_PROPERTIES))
+		{
+			throw new IllegalArgumentException("modification of HAS_PROPERTIES is not allowed");
+		}
+
+		// HAS_ALARMS is set automatically
+		if (values.containsKey(TaskColumns.HAS_ALARMS))
+		{
+			throw new IllegalArgumentException("modification of HAS_ALARMS is not allowed");
+		}
+
 		// only sync adapters are allowed to set modification time
 		if (!isSyncAdapter && values.containsKey(TaskColumns.LAST_MODIFIED))
 		{

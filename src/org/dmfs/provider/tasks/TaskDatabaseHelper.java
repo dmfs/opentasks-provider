@@ -49,7 +49,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	/**
 	 * The database version.
 	 */
-	static final int DATABASE_VERSION = 10;
+	static final int DATABASE_VERSION = 11;
 
 	/**
 	 * List of all tables we provide.
@@ -383,6 +383,8 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			+ TaskContract.Tasks.PARENT_ID + " INTEGER,"
 			+ TaskContract.Tasks.SORTING + " TEXT,"
 			+ TaskContract.Tasks.HAS_ALARMS + " INTEGER,"
+			+ TaskContract.Tasks.HAS_PROPERTIES + " INTEGER,"
+			+ TaskContract.Tasks.PINNED + " INTEGER,"
 			+ TaskContract.Tasks.ORIGINAL_INSTANCE_SYNC_ID + " TEXT,"
 			+ TaskContract.Tasks.ORIGINAL_INSTANCE_ID + " INTEGER,"
 			+ TaskContract.Tasks.ORIGINAL_INSTANCE_TIME + " INTEGER,"
@@ -720,6 +722,12 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			db.execSQL(SQL_CREATE_CATEGORIES_MAPPING_TABLE);
 			db.execSQL(SQL_CREATE_CATEGORY_PROPERTY_CLEANUP_TRIGGER);
 		}
+		if (oldVersion < 11)
+		{
+			db.execSQL("alter table " + Tables.TASKS + " add column " + Tasks.PINNED + " integer;");
+			db.execSQL("alter table " + Tables.TASKS + " add column " + Tasks.HAS_PROPERTIES + " integer;");
+		}
+
 		// upgrade FTS
 		FTSDatabaseHelper.onUpgrade(db, oldVersion, newVersion);
 
