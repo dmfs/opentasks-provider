@@ -22,6 +22,8 @@ import java.util.Map;
 
 import android.content.ContentResolver;
 import android.net.Uri;
+import android.provider.BaseColumns;
+import android.provider.SyncStateContract;
 
 
 /**
@@ -78,6 +80,32 @@ public final class TaskContract
 	 */
 	private TaskContract()
 	{
+	}
+
+	/**
+	 * A table provided for sync adapters to use for storing private sync state data.
+	 * <p/>
+	 * Only sync adapters are allowed to access this table and they may access their own row only.
+	 * <p/>
+	 * For convenience, updates on this table will insert a new row, if none exists yet.
+	 */
+	public static class SyncState implements SyncStateContract.Columns, BaseColumns
+	{
+		final static String CONTENT_URI_PATH = "syncstate";
+
+
+		/**
+		 * Get the sync state content {@link Uri} using the given authority.
+		 * 
+		 * @param authority
+		 *            The authority.
+		 * @return A {@link Uri}.
+		 */
+		public final static Uri getContentUri(String authority)
+		{
+			return getUriFactory(authority).getUri(CONTENT_URI_PATH);
+		}
+
 	}
 
 
@@ -1528,6 +1556,7 @@ public final class TaskContract
 		if (uriFactory == null)
 		{
 			uriFactory = new UriFactory(authority);
+			uriFactory.addUri(SyncState.CONTENT_URI_PATH);
 			uriFactory.addUri(TaskLists.CONTENT_URI_PATH);
 			uriFactory.addUri(Tasks.CONTENT_URI_PATH);
 			uriFactory.addUri(Tasks.SEARCH_URI_PATH);

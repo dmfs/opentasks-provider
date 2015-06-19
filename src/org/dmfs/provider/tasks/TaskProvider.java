@@ -31,6 +31,7 @@ import org.dmfs.provider.tasks.TaskContract.CommonSyncColumns;
 import org.dmfs.provider.tasks.TaskContract.Instances;
 import org.dmfs.provider.tasks.TaskContract.Properties;
 import org.dmfs.provider.tasks.TaskContract.PropertyColumns;
+import org.dmfs.provider.tasks.TaskContract.SyncState;
 import org.dmfs.provider.tasks.TaskContract.TaskColumns;
 import org.dmfs.provider.tasks.TaskContract.TaskListColumns;
 import org.dmfs.provider.tasks.TaskContract.TaskListSyncColumns;
@@ -97,6 +98,7 @@ public final class TaskProvider extends SQLiteContentProvider
 	private static final int ALARMS = 1005;
 	private static final int ALARM_ID = 1006;
 	private static final int SEARCH = 1007;
+	private static final int SYNCSTATE = 1008;
 
 	private static final String[] TASK_ID_PROJECTION = { Tasks._ID };
 	private static final String[] TASK_SYNC_ID_PROJECTION = { Tasks._SYNC_ID };
@@ -176,6 +178,8 @@ public final class TaskProvider extends SQLiteContentProvider
 		mUriMatcher.addURI(mAuthority, TaskContract.Alarms.CONTENT_URI_PATH + "/#", ALARM_ID);
 
 		mUriMatcher.addURI(mAuthority, TaskContract.Tasks.SEARCH_URI_PATH, SEARCH);
+
+		mUriMatcher.addURI(mAuthority, TaskContract.SyncState.CONTENT_URI_PATH, SYNCSTATE);
 		return result;
 	}
 
@@ -473,6 +477,20 @@ public final class TaskProvider extends SQLiteContentProvider
 
 		switch (mUriMatcher.match(uri))
 		{
+			case SYNCSTATE:
+			{
+				if (!isSyncAdapter)
+				{
+					throw new IllegalAccessError("only sync adapters may access syncstate");
+				}
+				if (TextUtils.isEmpty(getAccountName(uri)) || TextUtils.isEmpty(getAccountType(uri)))
+				{
+					throw new IllegalArgumentException("uri must contain an account when accessing syncstate");
+				}
+				selectAccount(sqlBuilder, uri);
+				sqlBuilder.setTables(Tables.SYNCSTATE);
+				break;
+			}
 			case LISTS:
 				// add account to selection if any
 				selectAccount(sqlBuilder, uri);
@@ -636,9 +654,23 @@ public final class TaskProvider extends SQLiteContentProvider
 
 		switch (mUriMatcher.match(uri))
 		{
-		/*
-		 * Deleting task lists is only allowed to sync adapters. They must provide ACCOUNT_NAME and ACCOUNT_TYPE.
-		 */
+			case SYNCSTATE:
+			{
+				if (!isSyncAdapter)
+				{
+					throw new IllegalAccessError("only sync adapters may access syncstate");
+				}
+				if (TextUtils.isEmpty(getAccountName(uri)) || TextUtils.isEmpty(getAccountType(uri)))
+				{
+					throw new IllegalArgumentException("uri must contain an account when accessing syncstate");
+				}
+				selection = updateSelection(selectAccount(uri), selection);
+				count = db.delete(Tables.SYNCSTATE, selection, selectionArgs);
+				break;
+			}
+			/*
+			 * Deleting task lists is only allowed to sync adapters. They must provide ACCOUNT_NAME and ACCOUNT_TYPE.
+			 */
 			case LIST_ID:
 				// add _id to selection and fall through
 				selection = updateSelection(selectId(uri), selection);
@@ -823,6 +855,22 @@ public final class TaskProvider extends SQLiteContentProvider
 
 		switch (mUriMatcher.match(uri))
 		{
+			case SYNCSTATE:
+			{
+				if (!isSyncAdapter)
+				{
+					throw new IllegalAccessError("only sync adapters may access syncstate");
+				}
+				if (TextUtils.isEmpty(accountName) || TextUtils.isEmpty(accountType))
+				{
+					throw new IllegalArgumentException("uri must contain an account when accessing syncstate");
+				}
+				values.put(SyncState.ACCOUNT_NAME, accountName);
+				values.put(SyncState.ACCOUNT_TYPE, accountType);
+				rowId = db.insert(Tables.SYNCSTATE, "", values);
+				result_uri = TaskContract.SyncState.getContentUri(mAuthority);
+				break;
+			}
 			case LISTS:
 				if (isSyncAdapter)
 				{
@@ -947,6 +995,39 @@ public final class TaskProvider extends SQLiteContentProvider
 		int count = 0;
 		switch (mUriMatcher.match(uri))
 		{
+			case SYNCSTATE:
+			{
+				if (!isSyncAdapter)
+				{
+					throw new IllegalAccessError("only sync adapters may access syncstate");
+				}
+
+				String accountName = getAccountName(uri);
+				String accountType = getAccountType(uri);
+				if (TextUtils.isEmpty(accountName) || TextUtils.isEmpty(accountType))
+				{
+					throw new IllegalArgumentException("uri must contain an account when accessing syncstate");
+				}
+
+				selection = updateSelection(selectAccount(uri), selection);
+				values.remove(SyncState.ACCOUNT_NAME);
+				values.remove(SyncState.ACCOUNT_TYPE);
+				if (values.size() == 0)
+				{
+					break;
+				}
+
+				count = db.update(Tables.SYNCSTATE, values, selection, selectionArgs);
+				if (count == 0)
+				{
+					// no entry for this account yet, add one
+					values.put(SyncState.ACCOUNT_NAME, accountName);
+					values.put(SyncState.ACCOUNT_TYPE, accountType);
+					db.insert(Tables.SYNCSTATE, "", values);
+					count = 1;
+				}
+				break;
+			}
 			case LISTS:
 				validateTaskListValues(values, false, isSyncAdapter);
 

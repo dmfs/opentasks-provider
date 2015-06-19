@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.dmfs.provider.tasks.TaskContract.Instances;
+import org.dmfs.provider.tasks.TaskContract.SyncState;
 import org.dmfs.provider.tasks.TaskContract.TaskListColumns;
 import org.dmfs.provider.tasks.TaskContract.TaskListSyncColumns;
 import org.dmfs.provider.tasks.TaskContract.TaskLists;
@@ -90,6 +91,10 @@ public class Utils
 						if (!accountList.contains(account))
 						{
 							obsoleteLists.add(c.getLong(0));
+
+							// remove syncstate for this account right away
+							db.delete(Tables.SYNCSTATE, SyncState.ACCOUNT_NAME + "=? and " + SyncState.ACCOUNT_TYPE + "=?", new String[] { account.name,
+								account.type });
 						}
 					}
 				}

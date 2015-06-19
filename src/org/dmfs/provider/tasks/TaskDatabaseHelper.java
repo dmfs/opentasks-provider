@@ -50,7 +50,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	/**
 	 * The database version.
 	 */
-	static final int DATABASE_VERSION = 12;
+	static final int DATABASE_VERSION = 13;
 
 	/**
 	 * List of all tables we provide.
@@ -83,6 +83,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 
 		public static final String ALARMS = "Alarms";
 
+		public static final String SYNCSTATE = "SyncState";
 	}
 
 	/**
@@ -207,7 +208,19 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	 * SQL command to drop the instance property view.
 	 */
 	//private final static String SQL_DROP_INSTANCE_PROPERTY_VIEW = "DROP VIEW " + Tables.INSTANCE_PROPERTY_VIEW + ";";
-	
+
+	/**
+	 * SQL command to create the instances table.
+	 */
+	private final static String SQL_CREATE_SYNCSTATE_TABLE =
+		"CREATE TABLE " + Tables.SYNCSTATE + " ( " +
+			TaskContract.SyncState._ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+		  + TaskContract.SyncState.ACCOUNT_NAME + " TEXT, "
+		  + TaskContract.SyncState.ACCOUNT_TYPE + " TEXT, "
+		  + TaskContract.SyncState.DATA + " TEXT "
+		  + ");";
+
+
 	/**
 	 * SQL command to create the instances table.
 	 */
@@ -574,6 +587,9 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		// create properties table
 		db.execSQL(SQL_CREATE_PROPERTIES_TABLE);
 
+		// create syncstate table
+		db.execSQL(SQL_CREATE_SYNCSTATE_TABLE);
+
 		// create views
 		db.execSQL(SQL_CREATE_TASK_VIEW);
 		db.execSQL(SQL_CREATE_TASK_PROPERTY_VIEW);
@@ -735,6 +751,11 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			ContentValues values = new ContentValues(1);
 			values.put(TaskLists.ACCOUNT_TYPE, TaskContract.LOCAL_ACCOUNT);
 			db.update(Tables.LISTS, values, TaskLists.ACCOUNT_TYPE + "=?", new String[] { "LOCAL" });
+		}
+
+		if (oldVersion < 13)
+		{
+			db.execSQL(SQL_CREATE_SYNCSTATE_TABLE);
 		}
 
 		// upgrade FTS
