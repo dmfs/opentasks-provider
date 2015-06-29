@@ -70,7 +70,7 @@ public final class TaskContract
 	/**
 	 * Account type for local, unsynced task lists.
 	 */
-	public static final String LOCAL_ACCOUNT = "LOCAL";
+	public static final String LOCAL_ACCOUNT = "org.dmfs.account.LOCAL";
 
 
 	/**

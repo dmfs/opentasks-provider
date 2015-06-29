@@ -23,6 +23,7 @@ import org.dmfs.provider.tasks.TaskContract.Property.Category;
 import org.dmfs.provider.tasks.TaskContract.TaskLists;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
@@ -49,7 +50,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	/**
 	 * The database version.
 	 */
-	static final int DATABASE_VERSION = 11;
+	static final int DATABASE_VERSION = 12;
 
 	/**
 	 * List of all tables we provide.
@@ -726,6 +727,14 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		{
 			db.execSQL("alter table " + Tables.TASKS + " add column " + Tasks.PINNED + " integer;");
 			db.execSQL("alter table " + Tables.TASKS + " add column " + Tasks.HAS_PROPERTIES + " integer;");
+		}
+
+		if (oldVersion < 12)
+		{
+			// rename the local account type
+			ContentValues values = new ContentValues(1);
+			values.put(TaskLists.ACCOUNT_TYPE, TaskContract.LOCAL_ACCOUNT);
+			db.update(Tables.LISTS, values, TaskLists.ACCOUNT_TYPE + "=?", new String[] { "LOCAL" });
 		}
 
 		// upgrade FTS
