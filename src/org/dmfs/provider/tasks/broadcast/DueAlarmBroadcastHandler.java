@@ -33,6 +33,8 @@ import android.content.BroadcastReceiver;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
@@ -49,6 +51,8 @@ import android.text.format.Time;
  */
 public class DueAlarmBroadcastHandler extends BroadcastReceiver
 {
+	private static final String PREFS_NAME = "org.dmfs.provider.tasks";
+	private static final String PREFS_KEY_DUE_ALARM_TIMESTAMP = "org.dmfs.provider.tasks.prefs.DUE_ALARM_TIMESTAMP";
 
 	private final static String ACTION_QUICKBOOT_POWERON = "android.intent.action.QUICKBOOT_POWERON";
 
@@ -256,11 +260,15 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 
 				// Set the next alarm
 				setUpcomingDueAlarm(context, db, nextDueTime);
+
+				// save the timestamp
+				saveDueAlarmTimestamp(context, nextDueTime);
+
 			}
 			else if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction()) || ACTION_QUICKBOOT_POWERON.equals(intent.getAction()))
 			{
 				// device booted -> set upcoming alarm
-				setUpcomingDueAlarm(context, db, System.currentTimeMillis());
+				setUpcomingDueAlarm(context, db, getDueAlarmTimestamp(context));
 
 			}
 		}
@@ -300,5 +308,21 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 		intent.putExtra(EXTRA_TASK_TIMEZONE, timezone);
 		intent.putExtra(EXTRA_SILENT_NOTIFICATION, silent);
 		context.sendBroadcast(intent);
+	}
+
+
+	private void saveDueAlarmTimestamp(Context context, long timestamp)
+	{
+		SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+		Editor editor = prefs.edit();
+		editor.putLong(PREFS_KEY_DUE_ALARM_TIMESTAMP, timestamp);
+		editor.commit();
+	}
+
+
+	private long getDueAlarmTimestamp(Context context)
+	{
+		SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+		return prefs.getLong(PREFS_KEY_DUE_ALARM_TIMESTAMP, System.currentTimeMillis());
 	}
 }
