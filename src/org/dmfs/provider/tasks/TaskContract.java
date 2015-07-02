@@ -85,9 +85,7 @@ public final class TaskContract
 	/**
 	 * A table provided for sync adapters to use for storing private sync state data.
 	 * <p/>
-	 * Only sync adapters are allowed to access this table and they may access their own row only.
-	 * <p/>
-	 * For convenience, updates on this table will insert a new row, if none exists yet.
+	 * Only sync adapters are allowed to access this table and they may access their own rows only.
 	 */
 	public static class SyncState implements SyncStateContract.Columns, BaseColumns
 	{
