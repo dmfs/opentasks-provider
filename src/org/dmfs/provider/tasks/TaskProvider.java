@@ -99,6 +99,7 @@ public final class TaskProvider extends SQLiteContentProvider
 	private static final int ALARM_ID = 1006;
 	private static final int SEARCH = 1007;
 	private static final int SYNCSTATE = 1008;
+	private static final int SYNCSTATE_ID = 1009;
 
 	private static final String[] TASK_ID_PROJECTION = { Tasks._ID };
 	private static final String[] TASK_SYNC_ID_PROJECTION = { Tasks._SYNC_ID };
@@ -180,6 +181,7 @@ public final class TaskProvider extends SQLiteContentProvider
 		mUriMatcher.addURI(mAuthority, TaskContract.Tasks.SEARCH_URI_PATH, SEARCH);
 
 		mUriMatcher.addURI(mAuthority, TaskContract.SyncState.CONTENT_URI_PATH, SYNCSTATE);
+		mUriMatcher.addURI(mAuthority, TaskContract.SyncState.CONTENT_URI_PATH + "/#", SYNCSTATE_ID);
 		return result;
 	}
 
@@ -477,12 +479,10 @@ public final class TaskProvider extends SQLiteContentProvider
 
 		switch (mUriMatcher.match(uri))
 		{
+			case SYNCSTATE_ID:
+				selection = updateSelection(selectId(uri), selection);
 			case SYNCSTATE:
 			{
-				if (!isSyncAdapter)
-				{
-					throw new IllegalAccessError("only sync adapters may access syncstate");
-				}
 				if (TextUtils.isEmpty(getAccountName(uri)) || TextUtils.isEmpty(getAccountType(uri)))
 				{
 					throw new IllegalArgumentException("uri must contain an account when accessing syncstate");
@@ -654,6 +654,8 @@ public final class TaskProvider extends SQLiteContentProvider
 
 		switch (mUriMatcher.match(uri))
 		{
+			case SYNCSTATE_ID:
+				selection = updateSelection(selectId(uri), selection);
 			case SYNCSTATE:
 			{
 				if (!isSyncAdapter)
@@ -995,6 +997,8 @@ public final class TaskProvider extends SQLiteContentProvider
 		int count = 0;
 		switch (mUriMatcher.match(uri))
 		{
+			case SYNCSTATE_ID:
+				selection = updateSelection(selectId(uri), selection);
 			case SYNCSTATE:
 			{
 				if (!isSyncAdapter)
