@@ -50,7 +50,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	/**
 	 * The database version.
 	 */
-	static final int DATABASE_VERSION = 13;
+	static final int DATABASE_VERSION = 14;
 
 	/**
 	 * List of all tables we provide.
@@ -608,6 +608,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		db.execSQL(createIndexString(Tables.CATEGORIES, false, TaskContract.Categories.ACCOUNT_NAME, TaskContract.Categories.ACCOUNT_TYPE,
 			TaskContract.Categories.NAME));
 		db.execSQL(createIndexString(Tables.CATEGORIES, false, TaskContract.Categories.NAME));
+		db.execSQL(createIndexString(Tables.SYNCSTATE, true, TaskContract.SyncState.ACCOUNT_NAME, TaskContract.SyncState.ACCOUNT_TYPE));
 
 		// trigger that removes properties of a task that has been removed
 		db.execSQL(SQL_CREATE_TASKS_CLEANUP_TRIGGER);
@@ -757,6 +758,12 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		if (oldVersion < 13)
 		{
 			db.execSQL(SQL_CREATE_SYNCSTATE_TABLE);
+		}
+
+		if (oldVersion < 14)
+		{
+			// create a unique index for account name and account type on the sync state table
+			db.execSQL(createIndexString(Tables.SYNCSTATE, true, TaskContract.SyncState.ACCOUNT_NAME, TaskContract.SyncState.ACCOUNT_TYPE));
 		}
 
 		// upgrade FTS

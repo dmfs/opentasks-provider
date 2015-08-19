@@ -90,6 +90,9 @@ public final class TaskContract
 	 * A table provided for sync adapters to use for storing private sync state data.
 	 * <p/>
 	 * Only sync adapters are allowed to access this table and they may access their own rows only.
+	 * <p />
+	 * Note that only one row per account will be stored. Updating or inserting a sync state for a specific account will override any previous sync state for
+	 * this account.
 	 */
 	public static class SyncState implements SyncStateContract.Columns, BaseColumns
 	{

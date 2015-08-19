@@ -480,7 +480,7 @@ public final class TaskProvider extends SQLiteContentProvider
 		switch (mUriMatcher.match(uri))
 		{
 			case SYNCSTATE_ID:
-				selection = updateSelection(selectId(uri), selection);
+				// the id is ignored, we only match by account type and name given in the Uri
 			case SYNCSTATE:
 			{
 				if (TextUtils.isEmpty(getAccountName(uri)) || TextUtils.isEmpty(getAccountType(uri)))
@@ -655,7 +655,7 @@ public final class TaskProvider extends SQLiteContentProvider
 		switch (mUriMatcher.match(uri))
 		{
 			case SYNCSTATE_ID:
-				selection = updateSelection(selectId(uri), selection);
+				// the id is ignored, we only match by account type and name given in the Uri
 			case SYNCSTATE:
 			{
 				if (!isSyncAdapter)
@@ -869,7 +869,7 @@ public final class TaskProvider extends SQLiteContentProvider
 				}
 				values.put(SyncState.ACCOUNT_NAME, accountName);
 				values.put(SyncState.ACCOUNT_TYPE, accountType);
-				rowId = db.insert(Tables.SYNCSTATE, "", values);
+				rowId = db.replace(Tables.SYNCSTATE, null, values);
 				result_uri = TaskContract.SyncState.getContentUri(mAuthority);
 				break;
 			}
@@ -998,7 +998,7 @@ public final class TaskProvider extends SQLiteContentProvider
 		switch (mUriMatcher.match(uri))
 		{
 			case SYNCSTATE_ID:
-				selection = updateSelection(selectId(uri), selection);
+				// the id is ignored, we only match by account type and name given in the Uri
 			case SYNCSTATE:
 			{
 				if (!isSyncAdapter)
@@ -1013,21 +1013,18 @@ public final class TaskProvider extends SQLiteContentProvider
 					throw new IllegalArgumentException("uri must contain an account when accessing syncstate");
 				}
 
-				selection = updateSelection(selectAccount(uri), selection);
-				values.remove(SyncState.ACCOUNT_NAME);
-				values.remove(SyncState.ACCOUNT_TYPE);
 				if (values.size() == 0)
 				{
+					// we're done
 					break;
 				}
 
-				count = db.update(Tables.SYNCSTATE, values, selection, selectionArgs);
-				if (count == 0)
+				values.put(SyncState.ACCOUNT_NAME, accountName);
+				values.put(SyncState.ACCOUNT_TYPE, accountType);
+
+				long id = db.replace(Tables.SYNCSTATE, null, values);
+				if (id >= 0)
 				{
-					// no entry for this account yet, add one
-					values.put(SyncState.ACCOUNT_NAME, accountName);
-					values.put(SyncState.ACCOUNT_TYPE, accountType);
-					db.insert(Tables.SYNCSTATE, "", values);
 					count = 1;
 				}
 				break;
