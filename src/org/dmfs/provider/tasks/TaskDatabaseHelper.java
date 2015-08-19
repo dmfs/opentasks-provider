@@ -634,7 +634,8 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 			// insert initial list
 			db.execSQL("insert into " + Tables.LISTS + " (" + TaskLists.ACCOUNT_TYPE + ", " + TaskLists.ACCOUNT_NAME + ", " + TaskLists.LIST_NAME + ", "
 				+ TaskLists.LIST_COLOR + ", " + TaskLists.VISIBLE + ", " + TaskLists.SYNC_ENABLED + ", " + TaskLists.OWNER + ") VALUES (?,?,?,?,?,?,?) ",
-				new Object[] { TaskContract.LOCAL_ACCOUNT, "Local", "Task list", Color.rgb(30, 136, 229) /* material blue 600 */, 1, 1, "" });
+				new Object[] { TaskContract.LOCAL_ACCOUNT_TYPE, TaskContract.LOCAL_ACCOUNT_NAME, "Task list", Color.rgb(30, 136, 229) /* material blue 600 */, 1,
+					1, "" });
 		}
 	}
 
@@ -749,7 +750,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		{
 			// rename the local account type
 			ContentValues values = new ContentValues(1);
-			values.put(TaskLists.ACCOUNT_TYPE, TaskContract.LOCAL_ACCOUNT);
+			values.put(TaskLists.ACCOUNT_TYPE, TaskContract.LOCAL_ACCOUNT_TYPE);
 			db.update(Tables.LISTS, values, TaskLists.ACCOUNT_TYPE + "=?", new String[] { "LOCAL" });
 		}
 

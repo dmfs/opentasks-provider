@@ -46,7 +46,6 @@ import android.provider.SyncStateContract;
  */
 public final class TaskContract
 {
-
 	private static Map<String, UriFactory> sUriFactories = new HashMap<String, UriFactory>(4);
 
 	/**
@@ -70,9 +69,14 @@ public final class TaskContract
 	public static final String ACCOUNT_TYPE = "account_type";
 
 	/**
+	 * Account name for local, unsynced task lists.
+	 */
+	public static final String LOCAL_ACCOUNT_NAME = "Local";
+
+	/**
 	 * Account type for local, unsynced task lists.
 	 */
-	public static final String LOCAL_ACCOUNT = "org.dmfs.account.LOCAL";
+	public static final String LOCAL_ACCOUNT_TYPE = "org.dmfs.account.LOCAL";
 
 
 	/**

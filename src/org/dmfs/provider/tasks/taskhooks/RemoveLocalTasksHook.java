@@ -43,7 +43,7 @@ public class RemoveLocalTasksHook extends AbstractTaskHook
 		}
 
 		String accountType = cursor.getString(cursor.getColumnIndex(Tasks.ACCOUNT_TYPE));
-		if (TaskContract.LOCAL_ACCOUNT.equals(accountType))
+		if (TaskContract.LOCAL_ACCOUNT_TYPE.equals(accountType))
 		{
 			// this is a local task that was will be marked as deleted. We'll delete it right away, to avoid stale tasks in our database.
 			// note that we don't do that in afterDelete, because we won't have a cursor to check the account type then

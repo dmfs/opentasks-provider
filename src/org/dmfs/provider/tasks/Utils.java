@@ -85,7 +85,7 @@ public class Utils
 					String accountType = c.getString(2);
 					// mark list for removal if it is non-local and the account
 					// is not in accountList
-					if (!TaskContract.LOCAL_ACCOUNT.equals(accountType))
+					if (!TaskContract.LOCAL_ACCOUNT_TYPE.equals(accountType))
 					{
 						Account account = new Account(c.getString(1), accountType);
 						if (!accountList.contains(account))
