@@ -15,26 +15,27 @@
  * 
  */
 
-package org.dmfs.provider.tasks.taskhooks;
+package org.dmfs.provider.tasks.taskprocessors;
 
 import org.dmfs.provider.tasks.TaskContract;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 import org.dmfs.provider.tasks.TaskDatabaseHelper;
+import org.dmfs.provider.tasks.model.TaskAdapter;
+import org.dmfs.provider.tasks.model.TaskFieldAdapters;
 
-import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
 
 /**
- * A hook to remove deleted local tasks.
+ * A {@link TaskProcessor} to remove deleted local tasks.
  * 
  * @author Marten Gajda <marten@dmfs.org>
  */
-public class RemoveLocalTasksHook extends AbstractTaskHook
+public class LocalTaskProcessor extends AbstractTaskProcessor
 {
 
 	@Override
-	public void beforeDelete(SQLiteDatabase db, long taskId, Cursor cursor, boolean isSyncAdapter)
+	public void beforeDelete(SQLiteDatabase db, TaskAdapter task, boolean isSyncAdapter)
 	{
 		if (isSyncAdapter)
 		{
@@ -42,12 +43,12 @@ public class RemoveLocalTasksHook extends AbstractTaskHook
 			return;
 		}
 
-		String accountType = cursor.getString(cursor.getColumnIndex(Tasks.ACCOUNT_TYPE));
+		String accountType = task.valueOf(TaskFieldAdapters.ACCOUNT_TYPE);
 		if (TaskContract.LOCAL_ACCOUNT_TYPE.equals(accountType))
 		{
 			// this is a local task that was will be marked as deleted. We'll delete it right away, to avoid stale tasks in our database.
 			// note that we don't do that in afterDelete, because we won't have a cursor to check the account type then
-			db.delete(TaskDatabaseHelper.Tables.TASKS, Tasks._ID + "=" + taskId, null);
+			db.delete(TaskDatabaseHelper.Tables.TASKS, Tasks._ID + "=" + task.id(), null);
 		}
 	}
 }

@@ -19,7 +19,6 @@ package org.dmfs.provider.tasks.broadcast;
 
 import java.util.TimeZone;
 
-import org.dmfs.provider.tasks.R;
 import org.dmfs.provider.tasks.TaskContract;
 import org.dmfs.provider.tasks.TaskContract.Instances;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
@@ -292,7 +291,7 @@ public class StartAlarmBroadcastHandler extends BroadcastReceiver
 	private static void sendTaskStartAlarmBroadcast(Context context, long taskId, long startDate, boolean isAllDay, String taskTitle, boolean silent)
 	{
 		Intent intent = new Intent(BROADCAST_START_ALARM);
-		intent.setData(ContentUris.withAppendedId(TaskContract.Tasks.getContentUri(context.getString(R.string.org_dmfs_tasks_authority)), taskId));
+		intent.setData(ContentUris.withAppendedId(TaskContract.Tasks.getContentUri(TaskContract.taskAuthority(context)), taskId));
 		intent.putExtra(EXTRA_TASK_ID, taskId);
 		intent.putExtra(EXTRA_TASK_START_TIME, startDate);
 		intent.putExtra(EXTRA_TASK_START_ALLDAY, isAllDay);

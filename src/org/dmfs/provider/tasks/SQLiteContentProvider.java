@@ -35,7 +35,15 @@ import android.net.Uri;
 /**
  * General purpose {@link ContentProvider} base class that uses SQLiteDatabase for storage.
  */
-public abstract class SQLiteContentProvider extends ContentProvider
+/*
+ * Changed by marten@dmfs.org:
+ * 
+ * removed protected mDb field and replaced it by local fields. There is no reason to store the database if we get a new one for every transaction. Instead we
+ * also pass the database to the *InTransaction methods.
+ * 
+ * update visibility of class and methods
+ */
+abstract class SQLiteContentProvider extends ContentProvider
 {
 
 	@SuppressWarnings("unused")
@@ -43,7 +51,6 @@ public abstract class SQLiteContentProvider extends ContentProvider
 
 	private SQLiteOpenHelper mOpenHelper;
 	private Set<Uri> mChangedUris;
-	protected SQLiteDatabase mDb;
 
 	private final ThreadLocal<Boolean> mApplyingBatch = new ThreadLocal<Boolean>();
 	private static final int SLEEP_AFTER_YIELD_DELAY = 4000;
@@ -67,25 +74,26 @@ public abstract class SQLiteContentProvider extends ContentProvider
 	/**
 	 * Returns a {@link SQLiteOpenHelper} that can open the database.
 	 */
-	public abstract SQLiteOpenHelper getDatabaseHelper(Context context);
+	protected abstract SQLiteOpenHelper getDatabaseHelper(Context context);
 
 
 	/**
 	 * The equivalent of the {@link #insert} method, but invoked within a transaction.
 	 */
-	public abstract Uri insertInTransaction(Uri uri, ContentValues values, boolean callerIsSyncAdapter);
+	public abstract Uri insertInTransaction(SQLiteDatabase db, Uri uri, ContentValues values, boolean callerIsSyncAdapter);
 
 
 	/**
 	 * The equivalent of the {@link #update} method, but invoked within a transaction.
 	 */
-	public abstract int updateInTransaction(Uri uri, ContentValues values, String selection, String[] selectionArgs, boolean callerIsSyncAdapter);
+	public abstract int updateInTransaction(SQLiteDatabase db, Uri uri, ContentValues values, String selection, String[] selectionArgs,
+		boolean callerIsSyncAdapter);
 
 
 	/**
 	 * The equivalent of the {@link #delete} method, but invoked within a transaction.
 	 */
-	public abstract int deleteInTransaction(Uri uri, String selection, String[] selectionArgs, boolean callerIsSyncAdapter);
+	public abstract int deleteInTransaction(SQLiteDatabase db, Uri uri, String selection, String[] selectionArgs, boolean callerIsSyncAdapter);
 
 
 	/**
@@ -124,25 +132,25 @@ public abstract class SQLiteContentProvider extends ContentProvider
 		Uri result = null;
 		boolean callerIsSyncAdapter = isCallerSyncAdapter(uri);
 		boolean applyingBatch = applyingBatch();
+		SQLiteDatabase db = mOpenHelper.getWritableDatabase();
 		if (!applyingBatch)
 		{
-			mDb = mOpenHelper.getWritableDatabase();
-			mDb.beginTransaction();
+			db.beginTransaction();
 			try
 			{
-				result = insertInTransaction(uri, values, callerIsSyncAdapter);
-				mDb.setTransactionSuccessful();
+				result = insertInTransaction(db, uri, values, callerIsSyncAdapter);
+				db.setTransactionSuccessful();
 			}
 			finally
 			{
-				mDb.endTransaction();
+				db.endTransaction();
 			}
 
 			onEndTransaction(callerIsSyncAdapter);
 		}
 		else
 		{
-			result = insertInTransaction(uri, values, callerIsSyncAdapter);
+			result = insertInTransaction(db, uri, values, callerIsSyncAdapter);
 		}
 		return result;
 	}
@@ -153,20 +161,20 @@ public abstract class SQLiteContentProvider extends ContentProvider
 	{
 		int numValues = values.length;
 		boolean callerIsSyncAdapter = isCallerSyncAdapter(uri);
-		mDb = mOpenHelper.getWritableDatabase();
-		mDb.beginTransaction();
+		SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+		db.beginTransaction();
 		try
 		{
 			for (int i = 0; i < numValues; i++)
 			{
-				Uri result = insertInTransaction(uri, values[i], callerIsSyncAdapter);
-				mDb.yieldIfContendedSafely();
+				insertInTransaction(db, uri, values[i], callerIsSyncAdapter);
+				db.yieldIfContendedSafely();
 			}
-			mDb.setTransactionSuccessful();
+			db.setTransactionSuccessful();
 		}
 		finally
 		{
-			mDb.endTransaction();
+			db.endTransaction();
 		}
 
 		onEndTransaction(callerIsSyncAdapter);
@@ -180,25 +188,25 @@ public abstract class SQLiteContentProvider extends ContentProvider
 		int count = 0;
 		boolean callerIsSyncAdapter = isCallerSyncAdapter(uri);
 		boolean applyingBatch = applyingBatch();
+		SQLiteDatabase db = mOpenHelper.getWritableDatabase();
 		if (!applyingBatch)
 		{
-			mDb = mOpenHelper.getWritableDatabase();
-			mDb.beginTransaction();
+			db.beginTransaction();
 			try
 			{
-				count = updateInTransaction(uri, values, selection, selectionArgs, callerIsSyncAdapter);
-				mDb.setTransactionSuccessful();
+				count = updateInTransaction(db, uri, values, selection, selectionArgs, callerIsSyncAdapter);
+				db.setTransactionSuccessful();
 			}
 			finally
 			{
-				mDb.endTransaction();
+				db.endTransaction();
 			}
 
 			onEndTransaction(callerIsSyncAdapter);
 		}
 		else
 		{
-			count = updateInTransaction(uri, values, selection, selectionArgs, callerIsSyncAdapter);
+			count = updateInTransaction(db, uri, values, selection, selectionArgs, callerIsSyncAdapter);
 		}
 
 		return count;
@@ -211,25 +219,25 @@ public abstract class SQLiteContentProvider extends ContentProvider
 		int count = 0;
 		boolean callerIsSyncAdapter = isCallerSyncAdapter(uri);
 		boolean applyingBatch = applyingBatch();
+		SQLiteDatabase db = mOpenHelper.getWritableDatabase();
 		if (!applyingBatch)
 		{
-			mDb = mOpenHelper.getWritableDatabase();
-			mDb.beginTransaction();
+			db.beginTransaction();
 			try
 			{
-				count = deleteInTransaction(uri, selection, selectionArgs, callerIsSyncAdapter);
-				mDb.setTransactionSuccessful();
+				count = deleteInTransaction(db, uri, selection, selectionArgs, callerIsSyncAdapter);
+				db.setTransactionSuccessful();
 			}
 			finally
 			{
-				mDb.endTransaction();
+				db.endTransaction();
 			}
 
 			onEndTransaction(callerIsSyncAdapter);
 		}
 		else
 		{
-			count = deleteInTransaction(uri, selection, selectionArgs, callerIsSyncAdapter);
+			count = deleteInTransaction(db, uri, selection, selectionArgs, callerIsSyncAdapter);
 		}
 		return count;
 	}
@@ -241,8 +249,8 @@ public abstract class SQLiteContentProvider extends ContentProvider
 		int ypCount = 0;
 		int opCount = 0;
 		boolean callerIsSyncAdapter = false;
-		mDb = mOpenHelper.getWritableDatabase();
-		mDb.beginTransaction();
+		SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+		db.beginTransaction();
 		try
 		{
 			mApplyingBatch.set(true);
@@ -263,20 +271,20 @@ public abstract class SQLiteContentProvider extends ContentProvider
 				if (i > 0 && operation.isYieldAllowed())
 				{
 					opCount = 0;
-					if (mDb.yieldIfContendedSafely(SLEEP_AFTER_YIELD_DELAY))
+					if (db.yieldIfContendedSafely(SLEEP_AFTER_YIELD_DELAY))
 					{
 						ypCount++;
 					}
 				}
 				results[i] = operation.apply(this, results, i);
 			}
-			mDb.setTransactionSuccessful();
+			db.setTransactionSuccessful();
 			return results;
 		}
 		finally
 		{
 			mApplyingBatch.set(false);
-			mDb.endTransaction();
+			db.endTransaction();
 			onEndTransaction(callerIsSyncAdapter);
 		}
 	}

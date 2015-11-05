@@ -15,35 +15,36 @@
  * 
  */
 
-package org.dmfs.provider.tasks.taskhooks;
+package org.dmfs.provider.tasks.taskprocessors;
 
 import org.dmfs.provider.tasks.TaskContract.Property.Relation;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 import org.dmfs.provider.tasks.TaskDatabaseHelper;
+import org.dmfs.provider.tasks.model.TaskAdapter;
+import org.dmfs.provider.tasks.model.TaskFieldAdapters;
 
 import android.content.ContentValues;
-import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
 
 /**
- * A simple hook that updates relations for new tasks.
+ * A simple processor that updates relations for new tasks.
  * <p>
  * In general there is no guarantee that a related task is already in the database when a task is inserted. In such a case we can not set the
- * {@link Relation#RELATED_ID} value. This hook updates the {@link Relation#RELATED_ID} is when a task is inserted.
+ * {@link Relation#RELATED_ID} value. This processor updates the {@link Relation#RELATED_ID} when a task is inserted.
  * </p>
  * <p>
- * It also updates {@link Relation#RELATED_UID} when a tasks is synced the first time.
+ * It also updates {@link Relation#RELATED_UID} when a tasks is synced the first time and a UID has been set.
  * </p>
  * TODO: update {@link Tasks#PARENT_ID} of related tasks.
  * 
  * @author Marten Gajda <marten@dmfs.org>
  */
-public class RelationUpdaterHook extends AbstractTaskHook
+public class RelationProcessor extends AbstractTaskProcessor
 {
 
 	@Override
-	public void afterInsert(SQLiteDatabase db, long taskId, ContentValues values, boolean isSyncAdapter)
+	public void afterInsert(SQLiteDatabase db, TaskAdapter task, boolean isSyncAdapter)
 	{
 		// A new task has been inserted by the sync adapter. Update all relations that point to this task.
 
@@ -53,12 +54,12 @@ public class RelationUpdaterHook extends AbstractTaskHook
 			return;
 		}
 
-		String uid = values.getAsString(Tasks._UID);
+		String uid = task.valueOf(TaskFieldAdapters._UID);
 
 		if (uid != null)
 		{
 			ContentValues v = new ContentValues(1);
-			v.put(Relation.RELATED_ID, taskId);
+			v.put(Relation.RELATED_ID, task.id());
 
 			db.update(TaskDatabaseHelper.Tables.PROPERTIES, v, Relation.MIMETYPE + "= ? AND " + Relation.RELATED_UID + "=?", new String[] {
 				Relation.CONTENT_ITEM_TYPE, uid });
@@ -67,9 +68,9 @@ public class RelationUpdaterHook extends AbstractTaskHook
 
 
 	@Override
-	public void afterUpdate(SQLiteDatabase db, long taskId, Cursor cursor, ContentValues values, boolean isSyncAdapter)
+	public void afterUpdate(SQLiteDatabase db, TaskAdapter task, boolean isSyncAdapter)
 	{
-		// A task has been updated any may have received a UID by the sync adapter. Update all by-id references to this task.
+		// A task has been updated and may have received a UID by the sync adapter. Update all by-id references to this task.
 
 		if (!isSyncAdapter)
 		{
@@ -77,7 +78,7 @@ public class RelationUpdaterHook extends AbstractTaskHook
 			return;
 		}
 
-		String uid = values.getAsString(Tasks._UID);
+		String uid = task.valueOf(TaskFieldAdapters._UID);
 
 		if (uid != null)
 		{
@@ -85,13 +86,13 @@ public class RelationUpdaterHook extends AbstractTaskHook
 			v.put(Relation.RELATED_UID, uid);
 
 			db.update(TaskDatabaseHelper.Tables.PROPERTIES, v, Relation.MIMETYPE + "= ? AND " + Relation.RELATED_ID + "=?", new String[] {
-				Relation.CONTENT_ITEM_TYPE, Long.toString(taskId) });
+				Relation.CONTENT_ITEM_TYPE, Long.toString(task.id()) });
 		}
 	}
 
 
 	@Override
-	public void afterDelete(SQLiteDatabase db, long taskId, boolean isSyncAdapter)
+	public void afterDelete(SQLiteDatabase db, TaskAdapter task, boolean isSyncAdapter)
 	{
 		if (!isSyncAdapter)
 		{
@@ -100,6 +101,6 @@ public class RelationUpdaterHook extends AbstractTaskHook
 		}
 
 		db.delete(TaskDatabaseHelper.Tables.PROPERTIES, Relation.MIMETYPE + "= ? AND " + Relation.RELATED_ID + "=?", new String[] { Relation.CONTENT_ITEM_TYPE,
-			Long.toString(taskId) });
+			Long.toString(task.id()) });
 	}
 }

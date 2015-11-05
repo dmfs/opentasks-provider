@@ -19,7 +19,6 @@ package org.dmfs.provider.tasks.broadcast;
 
 import java.util.TimeZone;
 
-import org.dmfs.provider.tasks.R;
 import org.dmfs.provider.tasks.TaskContract;
 import org.dmfs.provider.tasks.TaskContract.Instances;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
@@ -300,7 +299,7 @@ public class DueAlarmBroadcastHandler extends BroadcastReceiver
 		boolean silent)
 	{
 		Intent intent = new Intent(BROADCAST_DUE_ALARM);
-		intent.setData(ContentUris.withAppendedId(TaskContract.Tasks.getContentUri(context.getString(R.string.org_dmfs_tasks_authority)), taskId));
+		intent.setData(ContentUris.withAppendedId(TaskContract.Tasks.getContentUri(TaskContract.taskAuthority(context)), taskId));
 		intent.putExtra(EXTRA_TASK_ID, taskId);
 		intent.putExtra(EXTRA_TASK_DUE_TIME, dueDate);
 		intent.putExtra(EXTRA_TASK_DUE_ALLDAY, isAllDay);

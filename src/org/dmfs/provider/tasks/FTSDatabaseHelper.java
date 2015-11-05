@@ -25,6 +25,8 @@ import org.dmfs.provider.tasks.TaskContract.Properties;
 import org.dmfs.provider.tasks.TaskContract.TaskColumns;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
+import org.dmfs.provider.tasks.model.TaskAdapter;
+import org.dmfs.provider.tasks.model.TaskFieldAdapters;
 
 import android.content.ContentValues;
 import android.database.Cursor;
@@ -265,32 +267,27 @@ public class FTSDatabaseHelper
 	 * 
 	 * @param db
 	 *            The writable {@link SQLiteDatabase}.
-	 * @param taskId
-	 *            The row id of the task.
-	 * @param newValues
-	 *            The {@link ContentValues} to update for that task.
+	 * @param task
+	 *            The {@link TaskAdapter} containing the new values.
 	 */
-	public static void updateTaskFTSEntries(SQLiteDatabase db, long taskId, ContentValues newValues)
+	public static void updateTaskFTSEntries(SQLiteDatabase db, TaskAdapter task)
 	{
-		if (newValues != null)
+		// title
+		if (task.isUpdated(TaskFieldAdapters.TITLE))
 		{
-			// title
-			if (newValues.containsKey(Tasks.TITLE))
-			{
-				updateEntry(db, taskId, -1, SearchableTypes.TITLE, newValues.getAsString(Tasks.TITLE));
-			}
+			updateEntry(db, task.id(), -1, SearchableTypes.TITLE, task.valueOf(TaskFieldAdapters.TITLE));
+		}
 
-			// location
-			if (newValues.containsKey(Tasks.LOCATION))
-			{
-				updateEntry(db, taskId, -1, SearchableTypes.LOCATION, newValues.getAsString(Tasks.LOCATION));
-			}
+		// location
+		if (task.isUpdated(TaskFieldAdapters.LOCATION))
+		{
+			updateEntry(db, task.id(), -1, SearchableTypes.LOCATION, task.valueOf(TaskFieldAdapters.LOCATION));
+		}
 
-			// description
-			if (newValues.containsKey(Tasks.DESCRIPTION))
-			{
-				updateEntry(db, taskId, -1, SearchableTypes.DESCRIPTION, newValues.getAsString(Tasks.DESCRIPTION));
-			}
+		// description
+		if (task.isUpdated(TaskFieldAdapters.DESCRIPTION))
+		{
+			updateEntry(db, task.id(), -1, SearchableTypes.DESCRIPTION, task.valueOf(TaskFieldAdapters.DESCRIPTION));
 		}
 
 	}

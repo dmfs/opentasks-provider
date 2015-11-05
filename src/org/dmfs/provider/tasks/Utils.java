@@ -30,7 +30,6 @@ import org.dmfs.provider.tasks.TaskContract.Tasks;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
 
 import android.accounts.Account;
-import android.accounts.AccountManager;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -52,15 +51,6 @@ public class Utils
 		// broadcast receiver. We have to find away around this
 		Intent providerChangedIntent = new Intent(Intent.ACTION_PROVIDER_CHANGED, TaskContract.getContentUri(authority));
 		context.sendBroadcast(providerChangedIntent);
-	}
-
-
-	public static void cleanUpLists(Context context, String authority)
-	{
-		AccountManager am = AccountManager.get(context);
-		Account[] accounts = am.getAccounts();
-
-		cleanUpLists(context, new TaskDatabaseHelper(context).getWritableDatabase(), accounts, authority);
 	}
 
 

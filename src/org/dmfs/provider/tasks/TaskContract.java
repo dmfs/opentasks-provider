@@ -17,10 +17,16 @@
 
 package org.dmfs.provider.tasks;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 import android.content.ContentResolver;
+import android.content.Context;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.ProviderInfo;
 import android.net.Uri;
 import android.provider.BaseColumns;
 import android.provider.SyncStateContract;
@@ -46,6 +52,11 @@ import android.provider.SyncStateContract;
  */
 public final class TaskContract
 {
+	/**
+	 * The task authority cache.
+	 */
+	private static Map<String, String> sAuthorities = Collections.synchronizedMap(new HashMap<String, String>(4));
+
 	private static Map<String, UriFactory> sUriFactories = new HashMap<String, UriFactory>(4);
 
 	/**
@@ -77,6 +88,19 @@ public final class TaskContract
 	 * Account type for local, unsynced task lists.
 	 */
 	public static final String LOCAL_ACCOUNT_TYPE = "org.dmfs.account.LOCAL";
+
+	/**
+	 * Broadcast action that's sent when the task database has been initialized, either because the app was launched for the first time or because the app was
+	 * launched after the user cleared the app data.
+	 * <p />
+	 * The intent data represents the authority of the provider, the MIME type will be {@link #MIMETYPE_AUTHORITY}.
+	 */
+	public static final String ACTION_DATABASE_INITIALIZED = "org.dmfs.tasks.DATABASE_INITIALIZED";
+
+	/**
+	 * A MIME type of an authority. Authorities itself don't seem to have a MIME type in Android, so we just use our own.
+	 */
+	public static final String MIMETYPE_AUTHORITY = ContentResolver.CURSOR_DIR_BASE_TYPE + "/vnd.org.dmfs.authority.mimetype";
 
 
 	/**
@@ -925,8 +949,8 @@ public final class TaskContract
 		public static final String INSTANCE_DUE = "instance_due";
 
 		/**
-		 * This column should be used in an order clause to sort instances by due date. It contains a slightly modified start date that takes allday tasks into
-		 * account.
+		 * This column should be used in an order clause to sort instances by start date. The only guarantee about the values in this column is the sort order.
+		 * Don't make any other assumptions about the value.
 		 * <p>
 		 * Value: Long
 		 * </p>
@@ -937,8 +961,8 @@ public final class TaskContract
 		public static final String INSTANCE_START_SORTING = "instance_start_sorting";
 
 		/**
-		 * This column should be used in an order clause to sort instances by due date. It contains a slightly modified due date that takes allday tasks into
-		 * account.
+		 * This column should be used in an order clause to sort instances by due date. The only guarantee about the values in this column is the sort order.
+		 * Don't make any other assumptions about the value.
 		 * <p>
 		 * Value: Long
 		 * </p>
@@ -1574,4 +1598,64 @@ public final class TaskContract
 		}
 		return uriFactory;
 	}
+
+
+	/**
+	 * Returns the authority of the {@link TaskProvider} in the given {@link Context}.
+	 * <p/>
+	 * TODO: create an Authority class instead that handles everything about authorities. It could replace {@link UriFactory} as well. The Authority class could
+	 * have a generic parameter that identifies the authority provider or contract class.
+	 * 
+	 * @param context
+	 *            A {@link Context} of an app that contains a {@link TaskProvider}.
+	 * @return The authority.
+	 * 
+	 * @throws RuntimeException
+	 *             if there is no {@link TaskProvider} in that {@link Context}.
+	 */
+	public static synchronized String taskAuthority(Context context)
+	{
+		String packageName = context.getPackageName();
+		if (sAuthorities.containsKey(packageName))
+		{
+			return sAuthorities.get(packageName);
+		}
+
+		PackageManager packageManager = context.getPackageManager();
+
+		// first get the PackageInfo of this app.
+		PackageInfo packageInfo;
+		try
+		{
+			packageInfo = packageManager.getPackageInfo(context.getPackageName(), PackageManager.GET_PROVIDERS);
+		}
+		catch (NameNotFoundException e)
+		{
+			throw new RuntimeException("Could not find TaskProvider!", e);
+		}
+
+		// next scan all providers for TaskProvider
+		for (ProviderInfo provider : packageInfo.providers)
+		{
+			Class<?> providerClass;
+			try
+			{
+				providerClass = Class.forName(provider.name);
+			}
+			catch (ClassNotFoundException e)
+			{
+				continue;
+			}
+
+			if (!TaskProvider.class.isAssignableFrom(providerClass))
+			{
+				continue;
+			}
+
+			sAuthorities.put(packageName, provider.authority);
+			return provider.authority;
+		}
+		throw new RuntimeException("Could not find TaskProvider! Make sure you added it to your AndroidManifest.xml.");
+	}
+
 }

@@ -5,17 +5,16 @@
 
     <uses-sdk
         android:minSdkVersion="8"
-        android:targetSdkVersion="15" />
+        android:targetSdkVersion="22" />
 
-    <application android:icon="@drawable/ic_launcher" >
+    <application>
         <receiver android:name="org.dmfs.provider.tasks.broadcast.DueAlarmBroadcastHandler" />
         <receiver android:name="org.dmfs.provider.tasks.broadcast.DueAlarmBroadcastHandler" >
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
-        <receiver
-            android:name="org.dmfs.provider.tasks.broadcast.TimeChangeBroadcastReceiver" >
+        <receiver android:name="org.dmfs.provider.tasks.broadcast.TimeChangeBroadcastReceiver" >
             <intent-filter>
                 <action android:name="android.intent.action.TIME_SET" />
             </intent-filter>

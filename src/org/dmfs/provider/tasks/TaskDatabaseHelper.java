@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Marten Gajda <marten@dmfs.org>
+ * Copyright (C) 2015 Marten Gajda <marten@dmfs.org>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,18 +27,28 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-import android.graphics.Color;
 import android.util.Log;
 
 
 /**
- * Task database helper takes case of creating and updating the task database, including tables, indices and triggers.
+ * Task database helper takes care of creating and updating the task database, including tables, indices and triggers.
  * 
  * @author Marten Gajda <marten@dmfs.org>
  * @author Tobias Reinsch <tobias@dmfs.org>
  */
 public class TaskDatabaseHelper extends SQLiteOpenHelper
 {
+
+	/**
+	 * Interface of a listener that's called when the database has been created or migrated.
+	 */
+	public interface OnDatabaseOperationListener
+	{
+		public void onDatabaseCreated(SQLiteDatabase db);
+
+
+		public void onDatabaseUpdate(SQLiteDatabase db, int oldVersion, int newVersion);
+	}
 
 	private static final String TAG = "TaskDatabaseHelper";
 
@@ -50,7 +60,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	/**
 	 * The database version.
 	 */
-	static final int DATABASE_VERSION = 14;
+	static final int DATABASE_VERSION = 15;
 
 	/**
 	 * List of all tables we provide.
@@ -533,13 +543,13 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 
 	}
 
-	private final boolean mCreateLocalList;
+	private final OnDatabaseOperationListener mListener;
 
 
-	TaskDatabaseHelper(Context context)
+	TaskDatabaseHelper(Context context, OnDatabaseOperationListener listener)
 	{
 		super(context, DATABASE_NAME, null, DATABASE_VERSION);
-		mCreateLocalList = context.getResources().getBoolean(R.bool.org_dmfs_allow_local_lists);
+		mListener = listener;
 	}
 
 
@@ -627,23 +637,18 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		// add cleanup trigger for orphaned properties
 		db.execSQL(SQL_CREATE_TASK_PROPERTY_CLEANUP_TRIGGER);
 
-		// initialze FTS
+		// initialize FTS
 		FTSDatabaseHelper.onCreate(db);
 
-		if (mCreateLocalList)
+		if (mListener != null)
 		{
-			// insert initial list
-			db.execSQL("insert into " + Tables.LISTS + " (" + TaskLists.ACCOUNT_TYPE + ", " + TaskLists.ACCOUNT_NAME + ", " + TaskLists.LIST_NAME + ", "
-				+ TaskLists.LIST_COLOR + ", " + TaskLists.VISIBLE + ", " + TaskLists.SYNC_ENABLED + ", " + TaskLists.OWNER + ") VALUES (?,?,?,?,?,?,?) ",
-				new Object[] { TaskContract.LOCAL_ACCOUNT_TYPE, TaskContract.LOCAL_ACCOUNT_NAME, "Task list", Color.rgb(30, 136, 229) /* material blue 600 */, 1,
-					1, "" });
+			mListener.onDatabaseCreated(db);
 		}
 	}
 
 
 	/**
 	 * Manages the database schema migration.
-	 * 
 	 */
 	@Override
 	public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion)
@@ -769,5 +774,9 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		// upgrade FTS
 		FTSDatabaseHelper.onUpgrade(db, oldVersion, newVersion);
 
+		if (mListener != null)
+		{
+			mListener.onDatabaseUpdate(db, oldVersion, newVersion);
+		}
 	}
 }
