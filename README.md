@@ -1,16 +1,18 @@
-# task-provider
+# opentasks-provider
 
-__A Task provider for Android__
+__An open source task provider for Android__
 
-This is a task provider for Android. It supports multiple accounts and multiple lists per account.
+This is a task provider for Android. It supports multiple accounts and multiple lists per account. It aims to fully support RFC 5545 VTODO as well as other task models.
 
 ## Requirements
 
-* Android SDK Level 8.
+* Android SDK Level 8 or higher.
+* [lib-recur](https://github.com/dmfs/lib-recur)
+* [rfc5545-datetime](https://github.com/dmfs/rfc5545-datetime)
 
 ## Usage
 
-At present this is a library project to be bundled with a task app. To use it include the following into your AndroidManifest
+This is a library project to be bundled with a task app. To use it include the following into your AndroidManifest
 
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="your.package" android:versionCode="1" android:versionName="1.0" >
@@ -94,5 +96,5 @@ At present this is a library project to be bundled with a task app. To use it in
 
 ## License
 
-Copyright (c) Marten Gajda 2012, licensed under Apache2.
+Copyright (c) Marten Gajda 2015, licensed under Apache2.
 
