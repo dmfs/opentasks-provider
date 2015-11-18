@@ -17,12 +17,15 @@
 
 package org.dmfs.provider.tasks.taskprocessors;
 
+import org.dmfs.provider.tasks.TaskContract;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
+import org.dmfs.provider.tasks.TaskDatabaseHelper;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
 import org.dmfs.provider.tasks.model.TaskAdapter;
 import org.dmfs.provider.tasks.model.TaskFieldAdapters;
 import org.dmfs.rfc5545.DateTime;
 
+import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
@@ -56,9 +59,36 @@ public class AutoUpdateProcessor extends AbstractTaskProcessor
 
 
 	@Override
+	public void afterInsert(SQLiteDatabase db, TaskAdapter task, boolean isSyncAdapter)
+	{
+		if (isSyncAdapter && task.isRecurring())
+		{
+			// task is recurring, update ORIGINAL_INSTANCE_ID of all exceptions that may already exists
+			ContentValues values = new ContentValues(1);
+			TaskFieldAdapters.ORIGINAL_INSTANCE_ID.setIn(values, task.id());
+			db.update(TaskDatabaseHelper.Tables.TASKS, values, TaskContract.Tasks.ORIGINAL_INSTANCE_SYNC_ID + "=? and "
+				+ TaskContract.Tasks.ORIGINAL_INSTANCE_ID + " is null", new String[] { task.valueOf(TaskFieldAdapters.SYNC_ID) });
+		}
+	}
+
+
+	@Override
 	public void beforeUpdate(SQLiteDatabase db, TaskAdapter task, boolean isSyncAdapter)
 	{
 		updateFields(db, task, isSyncAdapter);
+	}
+
+
+	@Override
+	public void afterUpdate(SQLiteDatabase db, TaskAdapter task, boolean isSyncAdapter)
+	{
+		if (isSyncAdapter && task.isRecurring() && task.isUpdated(TaskFieldAdapters.SYNC_ID))
+		{
+			// task is recurring, update ORIGINAL_INSTANCE_SYNC_ID of all exceptions that may already exists
+			ContentValues values = new ContentValues(1);
+			TaskFieldAdapters.ORIGINAL_INSTANCE_SYNC_ID.setIn(values, task.valueOf(TaskFieldAdapters.SYNC_ID));
+			db.update(TaskDatabaseHelper.Tables.TASKS, values, TaskContract.Tasks.ORIGINAL_INSTANCE_ID + "=" + task.id(), null);
+		}
 	}
 
 
@@ -93,9 +123,8 @@ public class AutoUpdateProcessor extends AbstractTaskProcessor
 			Cursor cursor = db.query(Tables.TASKS, TASK_ID_PROJECTION, SYNC_ID_SELECTION, syncId, null, null, null);
 			try
 			{
-				if (cursor != null && cursor.getCount() == 1)
+				if (cursor.moveToNext())
 				{
-					cursor.moveToNext();
 					Long originalId = cursor.getLong(0);
 					task.set(TaskFieldAdapters.ORIGINAL_INSTANCE_ID, originalId);
 				}
@@ -114,9 +143,8 @@ public class AutoUpdateProcessor extends AbstractTaskProcessor
 			Cursor cursor = db.query(Tables.TASKS, TASK_SYNC_ID_PROJECTION, TASK_ID_SELECTION, id, null, null, null);
 			try
 			{
-				if (cursor != null && cursor.getCount() == 1)
+				if (cursor.moveToNext())
 				{
-					cursor.moveToNext();
 					String originalSyncId = cursor.getString(0);
 					task.set(TaskFieldAdapters.ORIGINAL_INSTANCE_SYNC_ID, originalSyncId);
 				}

@@ -78,12 +78,6 @@ public class TaskValidatorProcessor extends AbstractTaskProcessor
 	{
 		verifyCommon(task, isSyncAdapter);
 
-		// setting a LIST_ID is allowed only for new tasks
-		if (task.isUpdated(TaskFieldAdapters.LIST_ID))
-		{
-			throw new IllegalArgumentException("LIST_ID is write-once");
-		}
-
 		// only sync adapters can modify original sync id and original instance id of an existing task
 		if (!isSyncAdapter && (task.isUpdated(TaskFieldAdapters.ORIGINAL_INSTANCE_ID) || task.isUpdated(TaskFieldAdapters.ORIGINAL_INSTANCE_SYNC_ID)))
 		{
@@ -180,7 +174,7 @@ public class TaskValidatorProcessor extends AbstractTaskProcessor
 			throw new IllegalArgumentException("modification of MODIFICATION_TIME is not allowed");
 		}
 
-		if (task.isUpdated(TaskFieldAdapters.ORIGINAL_INSTANCE_SYNC_ID) && task.isUpdated(TaskFieldAdapters.ORIGINAL_INSTANCE_SYNC_ID))
+		if (task.isUpdated(TaskFieldAdapters.ORIGINAL_INSTANCE_SYNC_ID) && task.isUpdated(TaskFieldAdapters.ORIGINAL_INSTANCE_ID))
 		{
 			throw new IllegalArgumentException("ORIGINAL_INSTANCE_SYNC_ID and ORIGINAL_INSTANCE_ID must not be specified at the same time");
 		}

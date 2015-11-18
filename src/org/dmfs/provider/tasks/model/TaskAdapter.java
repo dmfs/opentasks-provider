@@ -155,4 +155,12 @@ public interface TaskAdapter
 	 *            The new state value.
 	 */
 	public <T> void setState(FieldAdapter<T> stateFieldAdater, T value);
+
+
+	/***
+	 * Creates a {@link TaskAdapter} for a new task initialized with the values of this task (except for _ID).
+	 * 
+	 * @return A new task having the same values.
+	 */
+	public TaskAdapter duplicate();
 }

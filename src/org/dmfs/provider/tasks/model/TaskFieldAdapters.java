@@ -51,6 +51,11 @@ public final class TaskFieldAdapters
 	public final static LongFieldAdapter LIST_ID = new LongFieldAdapter(Tasks.LIST_ID);
 
 	/**
+	 * Adapter for the row id of the list of a task.
+	 */
+	public final static StringFieldAdapter LIST_OWNER = new StringFieldAdapter(Tasks.LIST_OWNER);
+
+	/**
 	 * Adapter for the row id of original instance of a task.
 	 */
 	public final static LongFieldAdapter ORIGINAL_INSTANCE_ID = new LongFieldAdapter(Tasks.ORIGINAL_INSTANCE_ID);
@@ -186,6 +191,16 @@ public final class TaskFieldAdapters
 	public final static IntegerFieldAdapter LIST_COLOR = new IntegerFieldAdapter(TaskContract.Tasks.LIST_COLOR);
 
 	/**
+	 * Adapter for the access level of the task list.
+	 * */
+	public final static IntegerFieldAdapter LIST_ACCESS_LEVEL = new IntegerFieldAdapter(TaskContract.Tasks.LIST_ACCESS_LEVEL);
+
+	/**
+	 * Adapter for the visibility setting of the task list.
+	 * */
+	public final static BooleanFieldAdapter LIST_VISIBLE = new BooleanFieldAdapter(TaskContract.Tasks.VISIBLE);
+
+	/**
 	 * Adpater for the ID of the task.
 	 * */
 	public static final IntegerFieldAdapter TASK_ID = new IntegerFieldAdapter(TaskContract.Tasks._ID);
@@ -278,7 +293,7 @@ public final class TaskFieldAdapters
 	/**
 	 * Adapter for the SYNC_ID field of a task.
 	 * */
-	public static final BinaryFieldAdapter SYNC_ID = new BinaryFieldAdapter(TaskContract.Tasks._SYNC_ID);
+	public static final StringFieldAdapter SYNC_ID = new StringFieldAdapter(TaskContract.Tasks._SYNC_ID);
 
 
 	/**

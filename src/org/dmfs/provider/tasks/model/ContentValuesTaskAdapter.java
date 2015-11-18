@@ -124,4 +124,10 @@ public class ContentValuesTaskAdapter extends AbstractTaskAdapter
 		}
 	}
 
+
+	@Override
+	public TaskAdapter duplicate()
+	{
+		return new ContentValuesTaskAdapter(new ContentValues(mValues));
+	}
 }

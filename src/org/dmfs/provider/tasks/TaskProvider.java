@@ -44,10 +44,10 @@ import org.dmfs.provider.tasks.handler.PropertyHandler;
 import org.dmfs.provider.tasks.handler.PropertyHandlerFactory;
 import org.dmfs.provider.tasks.model.ContentValuesTaskAdapter;
 import org.dmfs.provider.tasks.model.CursorContentValuesTaskAdapter;
-import org.dmfs.provider.tasks.model.CursorTaskAdapter;
 import org.dmfs.provider.tasks.model.TaskAdapter;
 import org.dmfs.provider.tasks.model.TaskFieldAdapters;
 import org.dmfs.provider.tasks.taskprocessors.AutoUpdateProcessor;
+import org.dmfs.provider.tasks.taskprocessors.ChangeListProcessor;
 import org.dmfs.provider.tasks.taskprocessors.FtsProcessor;
 import org.dmfs.provider.tasks.taskprocessors.LocalTaskProcessor;
 import org.dmfs.provider.tasks.taskprocessors.RelationProcessor;
@@ -130,7 +130,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	 * </p>
 	 */
 	private final static TaskProcessor[] TASK_PROCESSORS = { new TaskValidatorProcessor(), new AutoUpdateProcessor(), new RelationProcessor(),
-		new TaskInstancesProcessor(), new FtsProcessor(), new LocalTaskProcessor() };
+		new TaskInstancesProcessor(), new FtsProcessor(), new ChangeListProcessor(), new LocalTaskProcessor() };
 
 	/**
 	 * Our authority.
@@ -763,7 +763,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				{
 					while (cursor.moveToNext())
 					{
-						final TaskAdapter task = new CursorTaskAdapter(cursor);
+						final TaskAdapter task = new CursorContentValuesTaskAdapter(TaskFieldAdapters._ID.getFrom(cursor), cursor, new ContentValues());
 
 						// execute beforeDelete processors
 						executeProcessors(new TaskProcessorExecutor()

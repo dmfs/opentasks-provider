@@ -114,4 +114,22 @@ public class CursorContentValuesTaskAdapter extends AbstractTaskAdapter
 		return db.update(TaskDatabaseHelper.Tables.TASKS, mValues, TaskContract.TaskColumns._ID + "=" + mId, null);
 	}
 
+
+	@Override
+	public TaskAdapter duplicate()
+	{
+		ContentValues newValues = new ContentValues(mValues);
+
+		// copy all columns (except _ID) that are not in the values yet
+		for (int i = 0, count = mCursor.getColumnCount(); i < count; ++i)
+		{
+			String column = mCursor.getColumnName(i);
+			if (!newValues.containsKey(column) && !TaskContract.Tasks._ID.equals(column))
+			{
+				newValues.put(column, mCursor.getString(i));
+			}
+		}
+
+		return new ContentValuesTaskAdapter(newValues);
+	}
 }
