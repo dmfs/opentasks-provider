@@ -141,12 +141,14 @@ public class TaskInstancesProcessor extends AbstractTaskProcessor
 				// this case should be filtered by TaskValidatorProcessor, since setting a DURATION without DTSTART is invalid
 				instanceValues.putNull(Instances.INSTANCE_DURATION);
 				instanceValues.putNull(Instances.INSTANCE_DUE);
+				instanceValues.putNull(Instances.INSTANCE_DUE_SORTING);
 			}
 		}
 		else
 		{
 			instanceValues.putNull(Instances.INSTANCE_DURATION);
 			instanceValues.putNull(Instances.INSTANCE_DUE);
+			instanceValues.putNull(Instances.INSTANCE_DUE_SORTING);
 		}
 		return instanceValues;
 	}
