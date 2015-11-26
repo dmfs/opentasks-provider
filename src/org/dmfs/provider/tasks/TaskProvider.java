@@ -17,15 +17,16 @@
 
 package org.dmfs.provider.tasks;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 
 import org.dmfs.provider.tasks.TaskContract.Alarms;
 import org.dmfs.provider.tasks.TaskContract.Categories;
 import org.dmfs.provider.tasks.TaskContract.CategoriesColumns;
-import org.dmfs.provider.tasks.TaskContract.CommonSyncColumns;
 import org.dmfs.provider.tasks.TaskContract.Instances;
 import org.dmfs.provider.tasks.TaskContract.Properties;
 import org.dmfs.provider.tasks.TaskContract.PropertyColumns;
@@ -34,40 +35,39 @@ import org.dmfs.provider.tasks.TaskContract.TaskColumns;
 import org.dmfs.provider.tasks.TaskContract.TaskListColumns;
 import org.dmfs.provider.tasks.TaskContract.TaskListSyncColumns;
 import org.dmfs.provider.tasks.TaskContract.TaskLists;
-import org.dmfs.provider.tasks.TaskContract.TaskSyncColumns;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.OnDatabaseOperationListener;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
-import org.dmfs.provider.tasks.broadcast.DueAlarmBroadcastHandler;
-import org.dmfs.provider.tasks.broadcast.StartAlarmBroadcastHandler;
 import org.dmfs.provider.tasks.handler.PropertyHandler;
 import org.dmfs.provider.tasks.handler.PropertyHandlerFactory;
+import org.dmfs.provider.tasks.model.ContentValuesListAdapter;
 import org.dmfs.provider.tasks.model.ContentValuesTaskAdapter;
+import org.dmfs.provider.tasks.model.CursorContentValuesListAdapter;
 import org.dmfs.provider.tasks.model.CursorContentValuesTaskAdapter;
+import org.dmfs.provider.tasks.model.ListAdapter;
 import org.dmfs.provider.tasks.model.TaskAdapter;
-import org.dmfs.provider.tasks.model.TaskFieldAdapters;
-import org.dmfs.provider.tasks.taskprocessors.AutoUpdateProcessor;
-import org.dmfs.provider.tasks.taskprocessors.ChangeListProcessor;
-import org.dmfs.provider.tasks.taskprocessors.FtsProcessor;
-import org.dmfs.provider.tasks.taskprocessors.LocalTaskProcessor;
-import org.dmfs.provider.tasks.taskprocessors.RelationProcessor;
-import org.dmfs.provider.tasks.taskprocessors.TaskInstancesProcessor;
-import org.dmfs.provider.tasks.taskprocessors.TaskProcessor;
-import org.dmfs.provider.tasks.taskprocessors.TaskValidatorProcessor;
+import org.dmfs.provider.tasks.processors.EntityProcessor;
+import org.dmfs.provider.tasks.processors.lists.ListExecutionProcessor;
+import org.dmfs.provider.tasks.processors.lists.ListValidatorProcessor;
+import org.dmfs.provider.tasks.processors.tasks.AutoUpdateProcessor;
+import org.dmfs.provider.tasks.processors.tasks.ChangeListProcessor;
+import org.dmfs.provider.tasks.processors.tasks.FtsProcessor;
+import org.dmfs.provider.tasks.processors.tasks.RelationProcessor;
+import org.dmfs.provider.tasks.processors.tasks.TaskExecutionProcessor;
+import org.dmfs.provider.tasks.processors.tasks.TaskInstancesProcessor;
+import org.dmfs.provider.tasks.processors.tasks.TaskValidatorProcessor;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.accounts.OnAccountsUpdateListener;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.UriMatcher;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -84,7 +84,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.text.TextUtils;
-import android.util.Log;
 
 
 /**
@@ -121,33 +120,39 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	private static final int SYNCSTATE = 1008;
 	private static final int SYNCSTATE_ID = 1009;
 
+	private static final int OPERATIONS = 100000;
+
 	private final static Set<String> TASK_LIST_SYNC_COLUMNS = new HashSet<String>(Arrays.asList(TaskLists.SYNC_ADAPTER_COLUMNS));
 
 	/**
 	 * A list of {@link TaskProcessor}s to execute when doing operations on the tasks table.
-	 * <p>
-	 * TODO: allow dynamic configuration of the processors.
-	 * </p>
 	 */
-	private final static TaskProcessor[] TASK_PROCESSORS = { new TaskValidatorProcessor(), new AutoUpdateProcessor(), new RelationProcessor(),
-		new TaskInstancesProcessor(), new FtsProcessor(), new ChangeListProcessor(), new LocalTaskProcessor() };
+	private List<EntityProcessor<TaskAdapter>> mTaskProcessors = new ArrayList<EntityProcessor<TaskAdapter>>(16);
+
+	/**
+	 * A list of {@link ListProcessor}s to execute when doing operations on the task lists table.
+	 */
+	private List<EntityProcessor<ListAdapter>> mListProcessors = new ArrayList<EntityProcessor<ListAdapter>>(8);
 
 	/**
 	 * Our authority.
 	 */
-	private String mAuthority;
+	String mAuthority;
 
+	/**
+	 * The {@link UriMatcher} we use.
+	 */
 	private UriMatcher mUriMatcher;
 
 	/**
 	 * A handler to execute asynchronous jobs.
 	 */
-	private Handler mAsyncHandler;
+	Handler mAsyncHandler;
 
-	private interface TaskProcessorExecutor
-	{
-		public void execute(TaskProcessor processor);
-	}
+	/**
+	 * An {@link ProviderOperationsLog} to track all changes within a transaction.
+	 */
+	private ProviderOperationsLog mOperationsLog = new ProviderOperationsLog();
 
 
 	@Override
@@ -156,6 +161,17 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 		ProviderInfo providerInfo = getProviderInfo();
 
 		mAuthority = providerInfo.authority;
+
+		mTaskProcessors.add(new TaskValidatorProcessor());
+		mTaskProcessors.add(new AutoUpdateProcessor());
+		mTaskProcessors.add(new RelationProcessor());
+		mTaskProcessors.add(new TaskInstancesProcessor());
+		mTaskProcessors.add(new FtsProcessor());
+		mTaskProcessors.add(new ChangeListProcessor());
+		mTaskProcessors.add(new TaskExecutionProcessor());
+
+		mListProcessors.add(new ListValidatorProcessor());
+		mListProcessors.add(new ListExecutionProcessor());
 
 		mUriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
 		mUriMatcher.addURI(mAuthority, TaskContract.TaskLists.CONTENT_URI_PATH, LISTS);
@@ -182,6 +198,8 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 		mUriMatcher.addURI(mAuthority, TaskContract.SyncState.CONTENT_URI_PATH, SYNCSTATE);
 		mUriMatcher.addURI(mAuthority, TaskContract.SyncState.CONTENT_URI_PATH + "/#", SYNCSTATE_ID);
 
+		ContentOperation.register(mUriMatcher, mAuthority, OPERATIONS);
+
 		boolean result = super.onCreate();
 
 		// create a HandlerThread to perform async operations
@@ -192,7 +210,15 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 		AccountManager accountManager = AccountManager.get(getContext());
 		accountManager.addOnAccountsUpdatedListener(this, mAsyncHandler, true);
 
-		getContext().registerReceiver(mTimeZoneChangedReceiver, new IntentFilter(Intent.ACTION_TIMEZONE_CHANGED));
+		mAsyncHandler.post(new Runnable()
+		{
+
+			@Override
+			public void run()
+			{
+				ContentOperation.UPDATE_NOTIFICATION_ALARM.fire(getContext(), null);
+			}
+		});
 
 		return result;
 	}
@@ -703,26 +729,37 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				// add _id to selection and fall through
 				selection = updateSelection(selectId(uri), selection);
 			case LISTS:
+			{
 				if (isSyncAdapter)
 				{
-
 					if (TextUtils.isEmpty(accountType) || TextUtils.isEmpty(accountName))
 					{
 						throw new IllegalArgumentException("Sync adapters must specify an account and account type: " + uri);
 					}
-
-					selection = updateSelection(selectAccount(uri), selection);
-
-					count = db.delete(Tables.LISTS, selection, selectionArgs);
-
-					updateNotifications();
 				}
-				else
+
+				// iterate over all lists that match the selection. We iterate "manually" to execute any processors before or after deletion.
+				final Cursor cursor = db.query(Tables.LISTS, null, selection, selectionArgs, null, null, null, null);
+
+				try
 				{
-					throw new UnsupportedOperationException("Caller must be a sync adapter to delete task lists");
+					while (cursor.moveToNext())
+					{
+						final ListAdapter list = new CursorContentValuesListAdapter(ListAdapter._ID.getFrom(cursor), cursor, new ContentValues());
+
+						ProviderOperation.DELETE.execute(db, mListProcessors, list, isSyncAdapter, mOperationsLog, mAuthority);
+						count++;
+					}
 				}
+				finally
+				{
+					cursor.close();
+				}
+
+				updateNotifications();
 				break;
 
+			}
 			/*
 			 * Task won't be removed, just marked as deleted if the caller isn't a sync adapter. Sync adapters can remove tasks immediately.
 			 */
@@ -734,8 +771,6 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 			{
 				// TODO: filter by account name and type if present in uri.
 
-				final ContentValues values = new ContentValues();
-
 				if (isSyncAdapter)
 				{
 					if (TextUtils.isEmpty(accountType) || TextUtils.isEmpty(accountName))
@@ -743,64 +778,18 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 						throw new IllegalArgumentException("Sync adapters must specify an account and account type: " + uri);
 					}
 				}
-				else
-				{
-					// mark task as deleted and dirty, the sync adapter will remove it later
-					values.put(TaskSyncColumns._DELETED, true);
-					values.put(CommonSyncColumns._DIRTY, true);
-				}
 
 				// iterate over all tasks that match the selection. We iterate "manually" to execute any processors before or after deletion.
 				final Cursor cursor = db.query(Tables.TASKS_VIEW, null, selection, selectionArgs, null, null, null, null);
-
-				// we use a StringBuilder that we can recycle in case multiple tasks are deleted at once
-				// even if there is only one task to delete, this won't cause any overhead
-				StringBuilder selectionBuilder = new StringBuilder(Tasks._ID);
-				selectionBuilder.append("=");
-				int selectionBaseLen = selectionBuilder.length();
 
 				try
 				{
 					while (cursor.moveToNext())
 					{
-						final TaskAdapter task = new CursorContentValuesTaskAdapter(TaskFieldAdapters._ID.getFrom(cursor), cursor, new ContentValues());
+						final TaskAdapter task = new CursorContentValuesTaskAdapter(cursor, new ContentValues());
 
-						// execute beforeDelete processors
-						executeProcessors(new TaskProcessorExecutor()
-						{
-							@Override
-							public void execute(TaskProcessor processor)
-							{
-								processor.beforeDelete(db, task, isSyncAdapter);
-							}
-						});
-
-						selectionBuilder.setLength(selectionBaseLen);
-						selectionBuilder.append(task.id());
-
-						String taskIdSelection = selectionBuilder.toString();
-
-						if (isSyncAdapter)
-						{
-							// delete this task
-							count += db.delete(Tables.TASKS, taskIdSelection, null);
-						}
-						else
-						{
-							task.set(TaskFieldAdapters._DELETED, true);
-							task.commit(db);
-							count++;
-						}
-
-						// execute afterDelete processors
-						executeProcessors(new TaskProcessorExecutor()
-						{
-							@Override
-							public void execute(TaskProcessor processor)
-							{
-								processor.afterDelete(db, task, isSyncAdapter);
-							}
-						});
+						ProviderOperation.DELETE.execute(db, mTaskProcessors, task, isSyncAdapter, mOperationsLog, mAuthority);
+						count++;
 					}
 				}
 				finally
@@ -893,55 +882,25 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				break;
 			}
 			case LISTS:
-				if (isSyncAdapter)
-				{
-					validateTaskListValues(values, true, isSyncAdapter);
-					// only sync adapters can create task lists!
+			{
+				final ListAdapter list = new ContentValuesListAdapter(values);
+				list.set(ListAdapter.ACCOUNT_NAME, accountName);
+				list.set(ListAdapter.ACCOUNT_TYPE, accountType);
 
-					if (TextUtils.isEmpty(accountType) || TextUtils.isEmpty(accountName))
-					{
-						throw new IllegalArgumentException("Sync adapters must specify an account name and an account type: " + uri);
-					}
+				ProviderOperation.INSERT.execute(db, mListProcessors, list, isSyncAdapter, mOperationsLog, mAuthority);
 
-					values.put(TaskContract.ACCOUNT_NAME, accountName);
-					values.put(TaskContract.ACCOUNT_TYPE, accountType);
-					rowId = db.insert(Tables.LISTS, "", values);
-					result_uri = TaskContract.TaskLists.getContentUri(mAuthority);
-				}
-				else
-				{
-					throw new UnsupportedOperationException("Caller must be a sync adapter to create task lists");
-				}
+				rowId = list.id();
+				result_uri = TaskContract.TaskLists.getContentUri(mAuthority);
+
+				updateNotifications();
 				break;
-
+			}
 			case TASKS:
-				final TaskAdapter taskAdapter = new ContentValuesTaskAdapter(values);
+				final TaskAdapter task = new ContentValuesTaskAdapter(values);
 
-				// execute beforeInsert processor
-				executeProcessors(new TaskProcessorExecutor()
-				{
-					@Override
-					public void execute(TaskProcessor processor)
-					{
-						processor.beforeInsert(db, taskAdapter, isSyncAdapter);
-					}
-				});
+				ProviderOperation.INSERT.execute(db, mTaskProcessors, task, isSyncAdapter, mOperationsLog, mAuthority);
 
-				// insert task
-				taskAdapter.commit(db);
-
-				rowId = taskAdapter.id();
-
-				// execute afterInsert processor
-				executeProcessors(new TaskProcessorExecutor()
-				{
-					@Override
-					public void execute(TaskProcessor processor)
-					{
-						processor.afterInsert(db, taskAdapter, isSyncAdapter);
-					}
-				});
-
+				rowId = task.id();
 				result_uri = TaskContract.Tasks.getContentUri(mAuthority);
 
 				postNotifyUri(Instances.getContentUri(mAuthority));
@@ -1034,20 +993,37 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				}
 				break;
 			}
-			case LISTS:
-				validateTaskListValues(values, false, isSyncAdapter);
-
-				count = db.update(Tables.LISTS, values, selection, selectionArgs);
-				break;
-
 			case LIST_ID:
-				String newListSelection = updateSelection(selectId(uri), selection);
+				// update selection and fall through
+				selection = updateSelection(selectId(uri), selection);
 
-				validateTaskListValues(values, false, isSyncAdapter);
+			case LISTS:
+			{
+				// iterate over all task lists that match the selection. We iterate "manually" to execute any processors before or after insert.
+				final Cursor cursor = db.query(Tables.LISTS, null, selection, selectionArgs, null, null, null, null);
 
-				count = db.update(Tables.LISTS, values, newListSelection, selectionArgs);
+				int idCol = cursor.getColumnIndex(TaskContract.TaskLists._ID);
+
+				try
+				{
+					while (cursor.moveToNext())
+					{
+						final long listId = cursor.getLong(idCol);
+
+						// clone list values if we have more than one list to update
+						// we need this, because the processors may change the values
+						final ListAdapter list = new CursorContentValuesListAdapter(listId, cursor, cursor.getCount() > 1 ? new ContentValues(values) : values);
+
+						ProviderOperation.UPDATE.execute(db, mListProcessors, list, isSyncAdapter, mOperationsLog, mAuthority);
+						count++;
+					}
+				}
+				finally
+				{
+					cursor.close();
+				}
 				break;
-
+			}
 			case TASK_ID:
 				// update selection and fall through
 				selection = updateSelection(selectId(uri), selection);
@@ -1057,41 +1033,16 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				// iterate over all tasks that match the selection. We iterate "manually" to execute any processors before or after insert.
 				final Cursor cursor = db.query(Tables.TASKS_VIEW, null, selection, selectionArgs, null, null, null, null);
 
-				int idCol = cursor.getColumnIndex(Tasks._ID);
-
 				try
 				{
 					while (cursor.moveToNext())
 					{
-						final long taskId = cursor.getLong(idCol);
-
 						// clone task values if we have more than one task to update
 						// we need this, because the processors may change the values
-						final TaskAdapter taskAdapter = new CursorContentValuesTaskAdapter(taskId, cursor, cursor.getCount() > 1 ? new ContentValues(values)
-							: values);
+						final TaskAdapter task = new CursorContentValuesTaskAdapter(cursor, cursor.getCount() > 1 ? new ContentValues(values) : values);
 
-						// execute beforeUpdate processors
-						executeProcessors(new TaskProcessorExecutor()
-						{
-							@Override
-							public void execute(TaskProcessor processor)
-							{
-								processor.beforeUpdate(db, taskAdapter, isSyncAdapter);
-							}
-						});
-
-						taskAdapter.commit(db);
-						++count;
-
-						// execute afterUpdate processors
-						executeProcessors(new TaskProcessorExecutor()
-						{
-							@Override
-							public void execute(TaskProcessor processor)
-							{
-								processor.afterUpdate(db, taskAdapter, isSyncAdapter);
-							}
-						});
+						ProviderOperation.UPDATE.execute(db, mTaskProcessors, task, isSyncAdapter, mOperationsLog, mAuthority);
+						count++;
 					}
 				}
 				finally
@@ -1166,7 +1117,14 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				count = db.update(Tables.ALARMS, values, newAlarmSelection, selectionArgs);
 				break;
 			default:
-				throw new IllegalArgumentException("Unknown URI " + uri);
+				ContentOperation operation = ContentOperation.get(mUriMatcher.match(uri), OPERATIONS);
+
+				if (operation == null)
+				{
+					throw new IllegalArgumentException("Unknown URI " + uri);
+				}
+
+				operation.run(getContext(), mAsyncHandler, uri, db, values);
 		}
 
 		// get the keys in values
@@ -1199,52 +1157,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	 */
 	private void updateNotifications()
 	{
-		// update alarms
-		Context context = getContext();
-		SQLiteDatabase db = getDatabaseHelper().getWritableDatabase();
-		DueAlarmBroadcastHandler.setUpcomingDueAlarm(context, db, System.currentTimeMillis());
-		StartAlarmBroadcastHandler.setUpcomingStartAlarm(context, db, System.currentTimeMillis());
-	}
-
-
-	/**
-	 * Validate the given task list values.
-	 * 
-	 * @param values
-	 *            The task list properties to validate.
-	 * @throws IllegalArgumentException
-	 *             if any of the values is invalid.
-	 */
-	private void validateTaskListValues(ContentValues values, boolean isNew, boolean isSyncAdapter)
-	{
-		// row id can not be changed or set manually
-		if (values.containsKey(TaskColumns._ID))
-		{
-			throw new IllegalArgumentException("_ID can not be set manually");
-		}
-
-		if (isNew != values.containsKey(TaskListSyncColumns.ACCOUNT_NAME) && (!isNew || values.get(TaskListSyncColumns.ACCOUNT_NAME) != null))
-		{
-			throw new IllegalArgumentException("ACCOUNT_NAME is write-once and required on INSERT");
-		}
-
-		if (isNew != values.containsKey(TaskListSyncColumns.ACCOUNT_TYPE) && (!isNew || values.get(TaskListSyncColumns.ACCOUNT_TYPE) != null))
-		{
-			throw new IllegalArgumentException("ACCOUNT_TYPE is write-once and required on INSERT");
-		}
-
-		if (!isSyncAdapter && values.containsKey(TaskLists.LIST_COLOR))
-		{
-			throw new IllegalArgumentException("Only sync adapters can change the LIST_COLOR.");
-		}
-		if (!isSyncAdapter && values.containsKey(TaskLists._SYNC_ID))
-		{
-			throw new IllegalArgumentException("Only sync adapters can change the _SYNC_ID.");
-		}
-		if (!isSyncAdapter && values.containsKey(TaskLists.SYNC_VERSION))
-		{
-			throw new IllegalArgumentException("Only sync adapters can change SYNC_VERSION.");
-		}
+		ContentOperation.UPDATE_NOTIFICATION_ALARM.fire(getContext(), null);
 	}
 
 
@@ -1293,29 +1206,9 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	}
 
 
-	/**
-	 * Execute the given {@link TaskProcessorExecutor} for all task processors.
-	 * 
-	 * @param executor
-	 *            The {@link TaskProcessorExecutor} to execute;
-	 */
-	private void executeProcessors(TaskProcessorExecutor executor)
-	{
-		long start = System.currentTimeMillis();
-		for (TaskProcessor processor : TASK_PROCESSORS)
-		{
-			executor.execute(processor);
-		}
-		Log.v("TaskProvider", "time to process processors " + (System.currentTimeMillis() - start) + " ms");
-	}
-
-
 	@Override
 	public String getType(Uri uri)
 	{
-		/**
-		 * TODO: create the types in advance
-		 */
 		switch (mUriMatcher.match(uri))
 		{
 			case LISTS:
@@ -1329,6 +1222,11 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 			case INSTANCES:
 				return ContentResolver.CURSOR_DIR_BASE_TYPE + "/" + mAuthority + "." + Instances.CONTENT_URI_PATH;
 			default:
+				if (TaskContract.getContentUri(mAuthority).equals(uri))
+				{
+					// the uri matched content://<AUTHORITY>, in that case we return a special mimetype that represents the authority as such
+					return "vnd.android.cursor.dir/vnd.org.dmfs.authority.mimetype";
+				}
 				throw new IllegalArgumentException("Unsupported URI: " + uri);
 		}
 	}
@@ -1343,7 +1241,10 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	protected void onEndTransaction(boolean callerIsSyncAdapter)
 	{
 		super.onEndTransaction(callerIsSyncAdapter);
-		Utils.sendActionProviderChangedBroadCast(getContext(), mAuthority);
+		Intent providerChangedIntent = new Intent(Intent.ACTION_PROVIDER_CHANGED, TaskContract.getContentUri(mAuthority));
+		// add the change log to the broadcast
+		providerChangedIntent.putExtras(mOperationsLog.toBundle(true));
+		getContext().sendBroadcast(providerChangedIntent);
 	};
 
 
@@ -1366,40 +1267,10 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 			@Override
 			public void onDatabaseUpdate(SQLiteDatabase db, int oldVersion, int newVersion)
 			{
-
 				if (oldVersion < 15)
 				{
-					// TODO: this is a hack, find a proper solution to this
-					mTimeZoneChangedReceiver.onReceive(getContext(), null);
+					ContentOperation.UPDATE_TIMEZONE.fire(getContext(), null);
 				}
-			}
-		});
-
-		return helper;
-	}
-
-
-	/*
-	 * TODO: get rid of this. We should not hand out a database in a static method.
-	 */
-	public static TaskDatabaseHelper getDatabaseHelperStatic(final Context context)
-	{
-		TaskDatabaseHelper helper = new TaskDatabaseHelper(context, new OnDatabaseOperationListener()
-		{
-
-			@Override
-			public void onDatabaseCreated(SQLiteDatabase db)
-			{
-				// notify listeners that the database has been created
-				Intent dbInitializedIntent = new Intent(TaskContract.ACTION_DATABASE_INITIALIZED);
-				dbInitializedIntent.setDataAndType(TaskContract.getContentUri(TaskContract.taskAuthority(context)), TaskContract.MIMETYPE_AUTHORITY);
-				context.sendBroadcast(dbInitializedIntent);
-			}
-
-
-			@Override
-			public void onDatabaseUpdate(SQLiteDatabase db, int oldVersion, int newVersion)
-			{
 			}
 		});
 
@@ -1483,28 +1354,4 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 		// TODO: we probably can move the cleanup code here and get rid of the Utils class
 		Utils.cleanUpLists(getContext(), getDatabaseHelper().getWritableDatabase(), accounts, mAuthority);
 	}
-
-	private final BroadcastReceiver mTimeZoneChangedReceiver = new BroadcastReceiver()
-	{
-		@Override
-		public void onReceive(final Context context, Intent intent)
-		{
-			mAsyncHandler.post(new Runnable()
-			{
-
-				@Override
-				public void run()
-				{
-					long start = System.currentTimeMillis();
-					// request an update of all instance values
-					ContentValues values = new ContentValues(1);
-					TaskInstancesProcessor.addUpdateRequest(values);
-					int count = context.getContentResolver().update(
-						TaskContract.Tasks.getContentUri(mAuthority).buildUpon().appendQueryParameter(TaskContract.CALLER_IS_SYNCADAPTER, "true").build(),
-						values, null, null);
-					Log.i("TaskProvider", "time to update " + count + " tasks: " + (System.currentTimeMillis() - start) + " ms");
-				};
-			});
-		}
-	};
 }

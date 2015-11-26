@@ -15,7 +15,7 @@
  * 
  */
 
-package org.dmfs.provider.tasks.taskprocessors;
+package org.dmfs.provider.tasks.processors.tasks;
 
 import java.sql.RowId;
 import java.util.TimeZone;
@@ -24,8 +24,8 @@ import org.dmfs.provider.tasks.TaskContract;
 import org.dmfs.provider.tasks.TaskContract.Instances;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
 import org.dmfs.provider.tasks.model.TaskAdapter;
-import org.dmfs.provider.tasks.model.TaskFieldAdapters;
 import org.dmfs.provider.tasks.model.adapters.BooleanFieldAdapter;
+import org.dmfs.provider.tasks.processors.AbstractEntityProcessor;
 import org.dmfs.rfc5545.DateTime;
 import org.dmfs.rfc5545.Duration;
 
@@ -34,16 +34,30 @@ import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 
 
-public class TaskInstancesProcessor extends AbstractTaskProcessor
+/**
+ * A processor that creates or updates any instance values for a task.
+ * <p/>
+ * TODO: At present this does not support recurrence.
+ * 
+ * @author Marten Gajda <marten@dmfs.org>
+ */
+public class TaskInstancesProcessor extends AbstractEntityProcessor<TaskAdapter>
 {
 
 	/**
-	 * This is an adapter for a pseudo column to indicate that the instances may need an update, even if no relevant value has changed. This is useful to force
-	 * an update of the sorting values when the local timezone has been changed.
+	 * This is a field adapter for a pseudo column to indicate that the instances may need an update, even if no relevant value has changed. This is useful to
+	 * force an update of the sorting values when the local timezone has been changed.
 	 */
-	private final static BooleanFieldAdapter UPDATE_REQUESTED = new BooleanFieldAdapter("org.dmfs.tasks.TaskInstanceProcessor.UPDATE_REQUESTED");
+	private final static BooleanFieldAdapter<TaskAdapter> UPDATE_REQUESTED = new BooleanFieldAdapter<TaskAdapter>(
+		"org.dmfs.tasks.TaskInstanceProcessor.UPDATE_REQUESTED");
 
 
+	/**
+	 * Add a pseudo column to the given {@link ContentValues} to request an instances update, even if no time value has changed.
+	 * 
+	 * @param values
+	 *            The {@link ContentValues} to add the pseudo column to.
+	 */
 	public static void addUpdateRequest(ContentValues values)
 	{
 		UPDATE_REQUESTED.setIn(values, true);
@@ -72,7 +86,7 @@ public class TaskInstancesProcessor extends AbstractTaskProcessor
 	@Override
 	public void afterUpdate(SQLiteDatabase db, TaskAdapter task, boolean isSyncAdapter)
 	{
-		if (!task.isUpdated(TaskFieldAdapters.DTSTART) && !task.isUpdated(TaskFieldAdapters.DUE) && !task.isUpdated(TaskFieldAdapters.DURATION)
+		if (!task.isUpdated(TaskAdapter.DTSTART) && !task.isUpdated(TaskAdapter.DUE) && !task.isUpdated(TaskAdapter.DURATION)
 			&& !task.getState(UPDATE_REQUESTED))
 		{
 			// date values didn't change and update not requested
@@ -94,9 +108,9 @@ public class TaskInstancesProcessor extends AbstractTaskProcessor
 		ContentValues instanceValues = new ContentValues();
 
 		// get the relevant values from values
-		DateTime dtstart = task.valueOf(TaskFieldAdapters.DTSTART);
-		DateTime due = task.valueOf(TaskFieldAdapters.DUE);
-		Duration duration = task.valueOf(TaskFieldAdapters.DURATION);
+		DateTime dtstart = task.valueOf(TaskAdapter.DTSTART);
+		DateTime due = task.valueOf(TaskAdapter.DUE);
+		Duration duration = task.valueOf(TaskAdapter.DURATION);
 
 		TimeZone localTz = TimeZone.getDefault();
 

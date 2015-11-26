@@ -31,8 +31,11 @@ import android.database.Cursor;
  * Knows how to load and store arrays of {@link DateTime} values from a {@link Cursor} or {@link ContentValues}.
  * 
  * @author Marten Gajda <marten@dmfs.org>
+ * 
+ * @param <EntityType>
+ *            The type of the entity the field belongs to.
  */
-public final class DateTimeArrayFieldAdapter extends SimpleFieldAdapter<DateTime[]>
+public final class DateTimeArrayFieldAdapter<EntityType> extends SimpleFieldAdapter<DateTime[], EntityType>
 {
 	private final static Pattern SEPARATOR_PATTERN = Pattern.compile(",");
 

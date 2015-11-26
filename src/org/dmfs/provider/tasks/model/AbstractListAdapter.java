@@ -26,11 +26,11 @@ import android.net.Uri;
 
 
 /**
- * An abstract implementation of a {@link TaskAdapter} to server as the base for more concrete adapters.
+ * An abstract implementation of a {@link ListAdapter} to server as the base for more concrete adapters.
  * 
  * @author Marten Gajda <marten@dmfs.org>
  */
-public abstract class AbstractTaskAdapter implements TaskAdapter
+public abstract class AbstractListAdapter implements ListAdapter
 {
 	private final ContentValues mState = new ContentValues(10);
 
@@ -38,33 +38,19 @@ public abstract class AbstractTaskAdapter implements TaskAdapter
 	@Override
 	public Uri uri(String authority)
 	{
-		return ContentUris.withAppendedId(TaskContract.Tasks.getContentUri(authority), id());
+		return ContentUris.withAppendedId(TaskContract.TaskLists.getContentUri(authority), id());
 	}
 
 
 	@Override
-	public boolean isRecurring()
-	{
-		return valueOf(RRULE) != null || valueOf(RDATE) != null;
-	}
-
-
-	@Override
-	public boolean recurrenceUpdated()
-	{
-		return isUpdated(RRULE) || isUpdated(DTSTART) || isUpdated(DUE) || isUpdated(DURATION) || isUpdated(RDATE) || isUpdated(EXDATE);
-	}
-
-
-	@Override
-	public <T> T getState(FieldAdapter<T, TaskAdapter> stateFieldAdater)
+	public <T> T getState(FieldAdapter<T, ListAdapter> stateFieldAdater)
 	{
 		return stateFieldAdater.getFrom(mState);
 	}
 
 
 	@Override
-	public <T> void setState(FieldAdapter<T, TaskAdapter> stateFieldAdater, T value)
+	public <T> void setState(FieldAdapter<T, ListAdapter> stateFieldAdater, T value)
 	{
 		stateFieldAdater.setIn(mState, value);
 	}

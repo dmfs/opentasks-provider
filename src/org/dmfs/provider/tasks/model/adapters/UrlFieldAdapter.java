@@ -28,8 +28,11 @@ import android.database.Cursor;
  * Knows how to load and store {@link URL} values from a {@link Cursor} or {@link ContentValues}.
  * 
  * @author Marten Gajda <marten@dmfs.org>
+ * 
+ * @param <EntityType>
+ *            The type of the entity the field belongs to.
  */
-public final class UrlFieldAdapter extends SimpleFieldAdapter<URI>
+public final class UrlFieldAdapter<EntityType> extends SimpleFieldAdapter<URI, EntityType>
 {
 
 	private final String mFieldName;

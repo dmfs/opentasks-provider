@@ -17,12 +17,14 @@
 
 package org.dmfs.provider.tasks;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -101,6 +103,58 @@ public final class TaskContract
 	 * A MIME type of an authority. Authorities itself don't seem to have a MIME type in Android, so we just use our own.
 	 */
 	public static final String MIMETYPE_AUTHORITY = ContentResolver.CURSOR_DIR_BASE_TYPE + "/vnd.org.dmfs.authority.mimetype";
+
+	/**
+	 * The action of the broadcast that's send when a task becomes due. The intent data will be a {@link Uri} of the task that became due.
+	 */
+	public static final String ACTION_BROADCAST_TASK_DUE = "org.dmfs.android.tasks.TASK_DUE";
+
+	/**
+	 * The action of the broadcast that's send when a task starts. The intent data will be a {@link Uri} of the task that has started.
+	 */
+	public static final String ACTION_BROADCAST_TASK_STARTING = "org.dmfs.android.tasks.TASK_START";
+
+	/**
+	 * A Long extra that contains a timestamp of the event that's triggered. So this is either the timestamp of the start or due date of the task.
+	 */
+	public final static String EXTRA_TASK_TIMESTAMP = "org.dmfs.provider.tasks.extra.TIMESTAMP";
+
+	/**
+	 * A Boolean extra to indicate that the event that was triggered is an all-day date.
+	 */
+	public final static String EXTRA_TASK_ALLDAY = "org.dmfs.provider.tasks.extra.ALLDAY";
+
+	/**
+	 * A String extra containing the timezone id of the task.
+	 */
+	public final static String EXTRA_TASK_TIMEZONE = "org.dmfs.provider.tasks.extra.TIMEZONE";
+
+	/**
+	 * A String extra containing the title of the task.
+	 */
+	public final static String EXTRA_TASK_TITLE = "org.dmfs.provider.tasks.extra.TITLE";
+
+	/**
+	 * Boolean extra to indicate that a notification is supposed to be silent, i.e. should not play a sound when it's fired.
+	 */
+	public final static String EXTRA_SILENT_NOTIFICATION = "org.dmfs.provider.tasks.extra.SILENT";
+
+	/**
+	 * The name of the {@link Intent#ACTION_PROVIDER_CHANGED} extra that contains the {@link ArrayList} of {@link Uri}s that have been modified. This always
+	 * goes along with an {@link #EXTRA_OPERATIONS} which contains a code for the operation executed on a Uri at the same index.
+	 */
+	public final static String EXTRA_OPERATIONS_URIS = "org.dmfs.tasks.OPERATIONS_URIS";
+
+	/**
+	 * The name of the {@link Intent#ACTION_PROVIDER_CHANGED} extra that contains the {@link ArrayList} of provider operation codes. The following codes are
+	 * used:
+	 * <ul>
+	 * <li>0 - for inserts</li>
+	 * <li>1 - for updates</li>
+	 * <li>2 - for deletes</li>
+	 * </ul>
+	 */
+	public final static String EXTRA_OPERATIONS = "org.dmfs.tasks.OPERATIONS";
 
 
 	/**

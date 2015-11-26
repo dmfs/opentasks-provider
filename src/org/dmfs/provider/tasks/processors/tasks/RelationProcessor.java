@@ -15,20 +15,20 @@
  * 
  */
 
-package org.dmfs.provider.tasks.taskprocessors;
+package org.dmfs.provider.tasks.processors.tasks;
 
 import org.dmfs.provider.tasks.TaskContract.Property.Relation;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 import org.dmfs.provider.tasks.TaskDatabaseHelper;
 import org.dmfs.provider.tasks.model.TaskAdapter;
-import org.dmfs.provider.tasks.model.TaskFieldAdapters;
+import org.dmfs.provider.tasks.processors.AbstractEntityProcessor;
 
 import android.content.ContentValues;
 import android.database.sqlite.SQLiteDatabase;
 
 
 /**
- * A simple processor that updates relations for new tasks.
+ * A processor that updates relations for new tasks.
  * <p>
  * In general there is no guarantee that a related task is already in the database when a task is inserted. In such a case we can not set the
  * {@link Relation#RELATED_ID} value. This processor updates the {@link Relation#RELATED_ID} when a task is inserted.
@@ -40,7 +40,7 @@ import android.database.sqlite.SQLiteDatabase;
  * 
  * @author Marten Gajda <marten@dmfs.org>
  */
-public class RelationProcessor extends AbstractTaskProcessor
+public class RelationProcessor extends AbstractEntityProcessor<TaskAdapter>
 {
 
 	@Override
@@ -54,7 +54,7 @@ public class RelationProcessor extends AbstractTaskProcessor
 			return;
 		}
 
-		String uid = task.valueOf(TaskFieldAdapters._UID);
+		String uid = task.valueOf(TaskAdapter._UID);
 
 		if (uid != null)
 		{
@@ -78,7 +78,7 @@ public class RelationProcessor extends AbstractTaskProcessor
 			return;
 		}
 
-		String uid = task.valueOf(TaskFieldAdapters._UID);
+		String uid = task.valueOf(TaskAdapter._UID);
 
 		if (uid != null)
 		{

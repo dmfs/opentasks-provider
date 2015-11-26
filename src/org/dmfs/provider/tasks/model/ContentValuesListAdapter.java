@@ -26,23 +26,21 @@ import android.database.sqlite.SQLiteDatabase;
 
 
 /**
- * A {@link TaskAdapter} for tasks that are stored in a {@link ContentValues}.
- * 
  * @author Marten Gajda <marten@dmfs.org>
  */
-public class ContentValuesTaskAdapter extends AbstractTaskAdapter
+public class ContentValuesListAdapter extends AbstractListAdapter
 {
 	private long mId;
 	private final ContentValues mValues;
 
 
-	public ContentValuesTaskAdapter(ContentValues values)
+	public ContentValuesListAdapter(ContentValues values)
 	{
 		this(-1L, values);
 	}
 
 
-	public ContentValuesTaskAdapter(long id, ContentValues values)
+	public ContentValuesListAdapter(long id, ContentValues values)
 	{
 		mId = id;
 		mValues = values;
@@ -57,21 +55,21 @@ public class ContentValuesTaskAdapter extends AbstractTaskAdapter
 
 
 	@Override
-	public <T> T valueOf(FieldAdapter<T, TaskAdapter> fieldAdapter)
+	public <T> T valueOf(FieldAdapter<T, ListAdapter> fieldAdapter)
 	{
 		return fieldAdapter.getFrom(mValues);
 	}
 
 
 	@Override
-	public <T> T oldValueOf(FieldAdapter<T, TaskAdapter> fieldAdapter)
+	public <T> T oldValueOf(FieldAdapter<T, ListAdapter> fieldAdapter)
 	{
 		return null;
 	}
 
 
 	@Override
-	public <T> boolean isUpdated(FieldAdapter<T, TaskAdapter> fieldAdapter)
+	public <T> boolean isUpdated(FieldAdapter<T, ListAdapter> fieldAdapter)
 	{
 		return fieldAdapter.isSetIn(mValues);
 	}
@@ -92,14 +90,14 @@ public class ContentValuesTaskAdapter extends AbstractTaskAdapter
 
 
 	@Override
-	public <T> void set(FieldAdapter<T, TaskAdapter> fieldAdapter, T value) throws IllegalStateException
+	public <T> void set(FieldAdapter<T, ListAdapter> fieldAdapter, T value) throws IllegalStateException
 	{
 		fieldAdapter.setIn(mValues, value);
 	}
 
 
 	@Override
-	public <T> void unset(FieldAdapter<T, TaskAdapter> fieldAdapter) throws IllegalStateException
+	public <T> void unset(FieldAdapter<T, ListAdapter> fieldAdapter) throws IllegalStateException
 	{
 		fieldAdapter.removeFrom(mValues);
 	}
@@ -115,19 +113,19 @@ public class ContentValuesTaskAdapter extends AbstractTaskAdapter
 
 		if (mId < 0)
 		{
-			mId = db.insert(TaskDatabaseHelper.Tables.TASKS, null, mValues);
+			mId = db.insert(TaskDatabaseHelper.Tables.LISTS, null, mValues);
 			return mId > 0 ? 1 : 0;
 		}
 		else
 		{
-			return db.update(TaskDatabaseHelper.Tables.TASKS, mValues, TaskContract.TaskColumns._ID + "=" + mId, null);
+			return db.update(TaskDatabaseHelper.Tables.LISTS, mValues, TaskContract.TaskListColumns._ID + "=" + mId, null);
 		}
 	}
 
 
 	@Override
-	public TaskAdapter duplicate()
+	public ListAdapter duplicate()
 	{
-		return new ContentValuesTaskAdapter(new ContentValues(mValues));
+		return new ContentValuesListAdapter(new ContentValues(mValues));
 	}
 }

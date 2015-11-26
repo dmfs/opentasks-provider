@@ -15,60 +15,61 @@
  * 
  */
 
-package org.dmfs.provider.tasks.taskprocessors;
+package org.dmfs.provider.tasks.processors.tasks;
 
 import org.dmfs.provider.tasks.model.TaskAdapter;
+import org.dmfs.provider.tasks.processors.AbstractEntityProcessor;
 
 import android.database.sqlite.SQLiteDatabase;
+import android.util.Log;
 
 
 /**
- * A default implementation of {@link TaskProcessor} that does nothing. It can be used as the basis of concrete {@link TaskProcessor}s without having to
- * override all the methods.
+ * A simple debugging processor. It just logs every operation.
  * 
  * @author Marten Gajda <marten@dmfs.org>
  */
-public abstract class AbstractTaskProcessor implements TaskProcessor
+public class TestProcessor extends AbstractEntityProcessor<TaskAdapter>
 {
+
 	@Override
 	public void beforeInsert(SQLiteDatabase db, TaskAdapter task, boolean isSyncAdapter)
 	{
-		// the default implementation doesn't do anything
+		Log.d("TestProcessor", "before insert processor called");
 	}
 
 
 	@Override
 	public void afterInsert(SQLiteDatabase db, TaskAdapter task, boolean isSyncAdapter)
 	{
-		// the default implementation doesn't do anything
+		Log.d("TestProcessor", "after insert processor called for " + task.id());
 	}
 
 
 	@Override
 	public void beforeUpdate(SQLiteDatabase db, TaskAdapter task, boolean isSyncAdapter)
 	{
-		// the default implementation doesn't do anything
+		Log.d("TestProcessor", "before update processor called for " + task.id());
 	}
 
 
 	@Override
 	public void afterUpdate(SQLiteDatabase db, TaskAdapter task, boolean isSyncAdapter)
 	{
-		// the default implementation doesn't do anything
+		Log.d("TestProcessor", "after update processor called for " + task.id());
 	}
 
 
 	@Override
 	public void beforeDelete(SQLiteDatabase db, TaskAdapter task, boolean isSyncAdapter)
 	{
-		// the default implementation doesn't do anything
+		Log.d("TestProcessor", "before delete processor called for " + task.id());
 	}
 
 
 	@Override
 	public void afterDelete(SQLiteDatabase db, TaskAdapter task, boolean isSyncAdapter)
 	{
-		// the default implementation doesn't do anything
+		Log.i("TestProcessor", "after delete processor called for " + task.id());
 	}
-
 }

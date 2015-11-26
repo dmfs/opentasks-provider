@@ -38,8 +38,11 @@ import android.database.Cursor;
  * This adapter combines those three fields to a {@link DateTime} value. If the time zone field is <code>null</code> the time zone is always set to UTC.
  * 
  * @author Marten Gajda <marten@dmfs.org>
+ * 
+ * @param <EntityType>
+ *            The type of the entity the field belongs to.
  */
-public final class DateTimeFieldAdapter extends SimpleFieldAdapter<DateTime>
+public final class DateTimeFieldAdapter<EntityType> extends SimpleFieldAdapter<DateTime, EntityType>
 {
 	private final String mTimestampField;
 	private final String mTzField;

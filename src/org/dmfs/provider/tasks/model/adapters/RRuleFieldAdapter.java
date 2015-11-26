@@ -28,8 +28,11 @@ import android.database.Cursor;
  * Knows how to load and store a {@link RecurrenceRule} from a {@link Cursor} or {@link ContentValues}.
  * 
  * @author Marten Gajda <marten@dmfs.org>
+ * 
+ * @param <EntityType>
+ *            The type of the entity the field belongs to.
  */
-public final class RRuleFieldAdapter extends SimpleFieldAdapter<RecurrenceRule>
+public final class RRuleFieldAdapter<EntityType> extends SimpleFieldAdapter<RecurrenceRule, EntityType>
 {
 
 	/**

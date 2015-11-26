@@ -25,8 +25,11 @@ import android.database.Cursor;
  * Knows how to load and store an {@link Integer} from a {@link Cursor} or {@link ContentValues}.
  * 
  * @author Marten Gajda <marten@dmfs.org>
+ * 
+ * @param <EntityType>
+ *            The type of the entity the field belongs to.
  */
-public final class IntegerFieldAdapter extends SimpleFieldAdapter<Integer>
+public final class IntegerFieldAdapter<EntityType> extends SimpleFieldAdapter<Integer, EntityType>
 {
 
 	/**

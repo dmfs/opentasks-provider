@@ -27,8 +27,11 @@ import android.database.Cursor;
  * Knows how to load and store {@link Duration} values from a {@link Cursor} or {@link ContentValues}.
  * 
  * @author Marten Gajda <marten@dmfs.org>
+ * 
+ * @param <EntityType>
+ *            The type of the entity the field belongs to.
  */
-public final class DurationFieldAdapter extends SimpleFieldAdapter<Duration>
+public final class DurationFieldAdapter<EntityType> extends SimpleFieldAdapter<Duration, EntityType>
 {
 
 	private final String mFieldName;

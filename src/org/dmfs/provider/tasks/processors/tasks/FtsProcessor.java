@@ -15,10 +15,11 @@
  * 
  */
 
-package org.dmfs.provider.tasks.taskprocessors;
+package org.dmfs.provider.tasks.processors.tasks;
 
 import org.dmfs.provider.tasks.FTSDatabaseHelper;
 import org.dmfs.provider.tasks.model.TaskAdapter;
+import org.dmfs.provider.tasks.processors.AbstractEntityProcessor;
 
 import android.database.sqlite.SQLiteDatabase;
 
@@ -28,7 +29,7 @@ import android.database.sqlite.SQLiteDatabase;
  * 
  * @author Marten Gajda <marten@dmfs.org>
  */
-public class FtsProcessor extends AbstractTaskProcessor
+public class FtsProcessor extends AbstractEntityProcessor<TaskAdapter>
 {
 
 	@Override

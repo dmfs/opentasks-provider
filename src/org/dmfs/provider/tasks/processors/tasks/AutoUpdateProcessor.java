@@ -15,14 +15,14 @@
  * 
  */
 
-package org.dmfs.provider.tasks.taskprocessors;
+package org.dmfs.provider.tasks.processors.tasks;
 
 import org.dmfs.provider.tasks.TaskContract;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 import org.dmfs.provider.tasks.TaskDatabaseHelper;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
 import org.dmfs.provider.tasks.model.TaskAdapter;
-import org.dmfs.provider.tasks.model.TaskFieldAdapters;
+import org.dmfs.provider.tasks.processors.AbstractEntityProcessor;
 import org.dmfs.rfc5545.DateTime;
 
 import android.content.ContentValues;
@@ -31,11 +31,13 @@ import android.database.sqlite.SQLiteDatabase;
 
 
 /**
- * A {@link TaskProcessor} to set some task values automatically.
+ * A processor to adjust some task values automatically.
+ * <p />
+ * Other then recurrence exceptions no relations are handled by this code. Relation specific changes go to {@link RelationProcessor}.
  * 
  * @author Marten Gajda <marten@dmfs.org>
  */
-public class AutoUpdateProcessor extends AbstractTaskProcessor
+public class AutoUpdateProcessor extends AbstractEntityProcessor<TaskAdapter>
 {
 
 	private static final String[] TASK_ID_PROJECTION = { Tasks._ID };
@@ -53,7 +55,7 @@ public class AutoUpdateProcessor extends AbstractTaskProcessor
 		if (!isSyncAdapter)
 		{
 			// set created date for tasks created on the device
-			task.set(TaskFieldAdapters.CREATED, new DateTime(System.currentTimeMillis()));
+			task.set(TaskAdapter.CREATED, new DateTime(System.currentTimeMillis()));
 		}
 	}
 
@@ -65,9 +67,9 @@ public class AutoUpdateProcessor extends AbstractTaskProcessor
 		{
 			// task is recurring, update ORIGINAL_INSTANCE_ID of all exceptions that may already exists
 			ContentValues values = new ContentValues(1);
-			TaskFieldAdapters.ORIGINAL_INSTANCE_ID.setIn(values, task.id());
+			TaskAdapter.ORIGINAL_INSTANCE_ID.setIn(values, task.id());
 			db.update(TaskDatabaseHelper.Tables.TASKS, values, TaskContract.Tasks.ORIGINAL_INSTANCE_SYNC_ID + "=? and "
-				+ TaskContract.Tasks.ORIGINAL_INSTANCE_ID + " is null", new String[] { task.valueOf(TaskFieldAdapters.SYNC_ID) });
+				+ TaskContract.Tasks.ORIGINAL_INSTANCE_ID + " is null", new String[] { task.valueOf(TaskAdapter.SYNC_ID) });
 		}
 	}
 
@@ -82,11 +84,11 @@ public class AutoUpdateProcessor extends AbstractTaskProcessor
 	@Override
 	public void afterUpdate(SQLiteDatabase db, TaskAdapter task, boolean isSyncAdapter)
 	{
-		if (isSyncAdapter && task.isRecurring() && task.isUpdated(TaskFieldAdapters.SYNC_ID))
+		if (isSyncAdapter && task.isRecurring() && task.isUpdated(TaskAdapter.SYNC_ID))
 		{
 			// task is recurring, update ORIGINAL_INSTANCE_SYNC_ID of all exceptions that may already exists
 			ContentValues values = new ContentValues(1);
-			TaskFieldAdapters.ORIGINAL_INSTANCE_SYNC_ID.setIn(values, task.valueOf(TaskFieldAdapters.SYNC_ID));
+			TaskAdapter.ORIGINAL_INSTANCE_SYNC_ID.setIn(values, task.valueOf(TaskAdapter.SYNC_ID));
 			db.update(TaskDatabaseHelper.Tables.TASKS, values, TaskContract.Tasks.ORIGINAL_INSTANCE_ID + "=" + task.id(), null);
 		}
 	}
@@ -96,37 +98,37 @@ public class AutoUpdateProcessor extends AbstractTaskProcessor
 	{
 		if (!isSyncAdapter)
 		{
-			task.set(TaskFieldAdapters._DIRTY, true);
-			task.set(TaskFieldAdapters.LAST_MODIFIED, new DateTime(System.currentTimeMillis()));
+			task.set(TaskAdapter._DIRTY, true);
+			task.set(TaskAdapter.LAST_MODIFIED, new DateTime(System.currentTimeMillis()));
 
 			// set proper STATUS if task has been completed
-			if (task.valueOf(TaskFieldAdapters.COMPLETED) != null && !task.isUpdated(TaskFieldAdapters.STATUS))
+			if (task.valueOf(TaskAdapter.COMPLETED) != null && !task.isUpdated(TaskAdapter.STATUS))
 			{
-				task.set(TaskFieldAdapters.STATUS, Tasks.STATUS_COMPLETED);
+				task.set(TaskAdapter.STATUS, Tasks.STATUS_COMPLETED);
 			}
 		}
 
-		if (task.isUpdated(TaskFieldAdapters.PRIORITY))
+		if (task.isUpdated(TaskAdapter.PRIORITY))
 		{
-			Integer priority = task.valueOf(TaskFieldAdapters.PRIORITY);
+			Integer priority = task.valueOf(TaskAdapter.PRIORITY);
 			if (priority != null && priority == 0)
 			{
 				// replace priority 0 by null, it's the default and we need that for proper sorting
-				task.set(TaskFieldAdapters.PRIORITY, null);
+				task.set(TaskAdapter.PRIORITY, null);
 			}
 		}
 
 		// Find corresponding ORIGINAL_INSTANCE_ID
-		if (task.isUpdated(TaskFieldAdapters.ORIGINAL_INSTANCE_SYNC_ID))
+		if (task.isUpdated(TaskAdapter.ORIGINAL_INSTANCE_SYNC_ID))
 		{
-			String[] syncId = { task.valueOf(TaskFieldAdapters.ORIGINAL_INSTANCE_SYNC_ID) };
+			String[] syncId = { task.valueOf(TaskAdapter.ORIGINAL_INSTANCE_SYNC_ID) };
 			Cursor cursor = db.query(Tables.TASKS, TASK_ID_PROJECTION, SYNC_ID_SELECTION, syncId, null, null, null);
 			try
 			{
 				if (cursor.moveToNext())
 				{
 					Long originalId = cursor.getLong(0);
-					task.set(TaskFieldAdapters.ORIGINAL_INSTANCE_ID, originalId);
+					task.set(TaskAdapter.ORIGINAL_INSTANCE_ID, originalId);
 				}
 			}
 			finally
@@ -137,16 +139,16 @@ public class AutoUpdateProcessor extends AbstractTaskProcessor
 				}
 			}
 		}
-		else if (task.isUpdated(TaskFieldAdapters.ORIGINAL_INSTANCE_ID)) // Find corresponding ORIGINAL_INSTANCE_SYNC_ID
+		else if (task.isUpdated(TaskAdapter.ORIGINAL_INSTANCE_ID)) // Find corresponding ORIGINAL_INSTANCE_SYNC_ID
 		{
-			String[] id = { Long.toString(task.valueOf(TaskFieldAdapters.ORIGINAL_INSTANCE_ID)) };
+			String[] id = { Long.toString(task.valueOf(TaskAdapter.ORIGINAL_INSTANCE_ID)) };
 			Cursor cursor = db.query(Tables.TASKS, TASK_SYNC_ID_PROJECTION, TASK_ID_SELECTION, id, null, null, null);
 			try
 			{
 				if (cursor.moveToNext())
 				{
 					String originalSyncId = cursor.getString(0);
-					task.set(TaskFieldAdapters.ORIGINAL_INSTANCE_SYNC_ID, originalSyncId);
+					task.set(TaskAdapter.ORIGINAL_INSTANCE_SYNC_ID, originalSyncId);
 				}
 			}
 			finally
@@ -159,43 +161,43 @@ public class AutoUpdateProcessor extends AbstractTaskProcessor
 		}
 
 		// check that PERCENT_COMPLETE is an Integer between 0 and 100 if supplied also update status and completed accordingly
-		if (task.isUpdated(TaskFieldAdapters.PERCENT_COMPLETE))
+		if (task.isUpdated(TaskAdapter.PERCENT_COMPLETE))
 		{
-			Integer percent = task.valueOf(TaskFieldAdapters.PERCENT_COMPLETE);
+			Integer percent = task.valueOf(TaskAdapter.PERCENT_COMPLETE);
 
 			if (!isSyncAdapter && percent != null && percent == 100)
 			{
-				if (!task.isUpdated(TaskFieldAdapters.STATUS))
+				if (!task.isUpdated(TaskAdapter.STATUS))
 				{
-					task.set(TaskFieldAdapters.STATUS, Tasks.STATUS_COMPLETED);
+					task.set(TaskAdapter.STATUS, Tasks.STATUS_COMPLETED);
 				}
 
-				if (!task.isUpdated(TaskFieldAdapters.COMPLETED))
+				if (!task.isUpdated(TaskAdapter.COMPLETED))
 				{
-					task.set(TaskFieldAdapters.COMPLETED, new DateTime(System.currentTimeMillis()));
+					task.set(TaskAdapter.COMPLETED, new DateTime(System.currentTimeMillis()));
 				}
 			}
 			else if (!isSyncAdapter && percent != null)
 			{
-				if (!task.isUpdated(TaskFieldAdapters.COMPLETED))
+				if (!task.isUpdated(TaskAdapter.COMPLETED))
 				{
-					task.set(TaskFieldAdapters.COMPLETED, null);
+					task.set(TaskAdapter.COMPLETED, null);
 				}
 			}
 		}
 
 		// validate STATUS and set IS_NEW and IS_CLOSED accordingly
-		if (task.isUpdated(TaskFieldAdapters.STATUS) || task.id() < 0 /* this is true when the task is new */)
+		if (task.isUpdated(TaskAdapter.STATUS) || task.id() < 0 /* this is true when the task is new */)
 		{
-			Integer status = task.valueOf(TaskFieldAdapters.STATUS);
+			Integer status = task.valueOf(TaskAdapter.STATUS);
 			if (status == null)
 			{
 				status = Tasks.STATUS_DEFAULT;
-				task.set(TaskFieldAdapters.STATUS, status);
+				task.set(TaskAdapter.STATUS, status);
 			}
 
-			task.set(TaskFieldAdapters.IS_NEW, status == null || status == Tasks.STATUS_NEEDS_ACTION);
-			task.set(TaskFieldAdapters.IS_CLOSED, status != null && (status == Tasks.STATUS_COMPLETED || status == Tasks.STATUS_CANCELLED));
+			task.set(TaskAdapter.IS_NEW, status == null || status == Tasks.STATUS_NEEDS_ACTION);
+			task.set(TaskAdapter.IS_CLOSED, status != null && (status == Tasks.STATUS_COMPLETED || status == Tasks.STATUS_CANCELLED));
 
 			/*
 			 * Update PERCENT_COMPLETE and COMPLETED (if not given). Sync adapters should know what they're doing, so don't update anything if caller is a sync
@@ -203,15 +205,15 @@ public class AutoUpdateProcessor extends AbstractTaskProcessor
 			 */
 			if (status == Tasks.STATUS_COMPLETED && !isSyncAdapter)
 			{
-				task.set(TaskFieldAdapters.PERCENT_COMPLETE, 100);
-				if (!task.isUpdated(TaskFieldAdapters.COMPLETED))
+				task.set(TaskAdapter.PERCENT_COMPLETE, 100);
+				if (!task.isUpdated(TaskAdapter.COMPLETED))
 				{
-					task.set(TaskFieldAdapters.COMPLETED, new DateTime(System.currentTimeMillis()));
+					task.set(TaskAdapter.COMPLETED, new DateTime(System.currentTimeMillis()));
 				}
 			}
 			else if (!isSyncAdapter)
 			{
-				task.set(TaskFieldAdapters.COMPLETED, null);
+				task.set(TaskAdapter.COMPLETED, null);
 			}
 		}
 	}

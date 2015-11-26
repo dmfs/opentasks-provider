@@ -1,0 +1,20 @@
+
+OpenTasks-Provider 1.1.8
+========================
+
+TaskContract changes
+------------------------
+ * add constants for start and due notification broadcast actions and extras
+   Note: the broadcast extra values for due and start broadcasts have changed!
+ * add constants for ACTION_PROVIDER_CHANGED broadcasts extras
+
+Internal changes
+------------------------
+* add list of changes to ACTION_PROVIDER_CHANGED broadcast
+* remove static method to get TaskDatabaseHelper
+* refactor notification & broadcast handling
+ * replace all broadcast receivers by a single receiver -> update OpenTasks AndroidManifest.xml
+ * perform all actions within the provider context
+* refactor database operation handling
+ * introduce processor chains to handle task and task list operations
+ * add model for tasks and task lists to provide type safe field access

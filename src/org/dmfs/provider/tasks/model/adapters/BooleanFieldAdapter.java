@@ -23,10 +23,17 @@ import android.database.Cursor;
 
 /**
  * Knows how to load and store a {@link Boolean} value from a {@link Cursor} or {@link ContentValues}.
+ * <p />
+ * Implementation detail:
+ * <p />
+ * The values are loaded and stored as <code>0</code> (for <code>false</code>) and <code>1</code> (for <code>true</code>).
  * 
  * @author Marten Gajda <marten@dmfs.org>
+ * 
+ * @param <EntityType>
+ *            The type of the entity the field belongs to.
  */
-public final class BooleanFieldAdapter extends SimpleFieldAdapter<Boolean>
+public final class BooleanFieldAdapter<EntityType> extends SimpleFieldAdapter<Boolean, EntityType>
 {
 
 	/**

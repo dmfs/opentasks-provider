@@ -25,8 +25,11 @@ import android.database.Cursor;
  * Knows how to load and store a {@link Float} value from a {@link Cursor} or {@link ContentValues}.
  * 
  * @author Marten Gajda <marten@dmfs.org>
+ * 
+ * @param <EntityType>
+ *            The type of the entity the field belongs to.
  */
-public final class FloatFieldAdapter extends SimpleFieldAdapter<Float>
+public final class FloatFieldAdapter<EntityType> extends SimpleFieldAdapter<Float, EntityType>
 {
 
 	/**

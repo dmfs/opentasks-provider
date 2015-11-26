@@ -26,10 +26,13 @@ import android.database.Cursor;
  * 
  * @author Marten Gajda <marten@dmfs.org>
  * 
- * @param <Type>
+ * @param <FieldType>
  *            The Type of the field this adapter handles.
+ * 
+ * @param <EntityType>
+ *            The type of the entity the field belongs to.
  */
-public abstract class SimpleFieldAdapter<Type> implements FieldAdapter<Type>
+public abstract class SimpleFieldAdapter<FieldType, EntityType> implements FieldAdapter<FieldType, EntityType>
 {
 
 	/**
@@ -68,7 +71,7 @@ public abstract class SimpleFieldAdapter<Type> implements FieldAdapter<Type>
 
 
 	@Override
-	public Type getFrom(Cursor cursor, ContentValues values)
+	public FieldType getFrom(Cursor cursor, ContentValues values)
 	{
 		return values.containsKey(fieldName()) ? getFrom(values) : getFrom(cursor);
 	}

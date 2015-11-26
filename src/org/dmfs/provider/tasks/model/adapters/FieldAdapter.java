@@ -26,10 +26,12 @@ import android.database.Cursor;
  * 
  * @author Marten Gajda <marten@dmfs.org>
  * 
- * @param <Type>
+ * @param <FieldType>
  *            The type of the value this adapter stores.
+ * @param <EntitType>
+ *            The type of the entity the field belongs to.
  */
-public interface FieldAdapter<Type>
+public interface FieldAdapter<FieldType, EntitType>
 {
 
 	/**
@@ -59,7 +61,7 @@ public interface FieldAdapter<Type>
 	 *            The {@link ContentValues} that contain the value to return.
 	 * @return The value.
 	 */
-	public Type getFrom(ContentValues values);
+	public FieldType getFrom(ContentValues values);
 
 
 	/**
@@ -79,7 +81,7 @@ public interface FieldAdapter<Type>
 	 *            The {@link Cursor} that contain the value to return.
 	 * @return The value.
 	 */
-	public Type getFrom(Cursor cursor);
+	public FieldType getFrom(Cursor cursor);
 
 
 	/**
@@ -103,7 +105,7 @@ public interface FieldAdapter<Type>
 	 *            The {@link ContentValues} that contains the value to return.
 	 * @return The value.
 	 */
-	public Type getFrom(Cursor cursor, ContentValues values);
+	public FieldType getFrom(Cursor cursor, ContentValues values);
 
 
 	/**
@@ -114,7 +116,7 @@ public interface FieldAdapter<Type>
 	 * @param value
 	 *            The new value to store.
 	 */
-	public void setIn(ContentValues values, Type value);
+	public void setIn(ContentValues values, FieldType value);
 
 
 	/**

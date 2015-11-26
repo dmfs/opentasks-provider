@@ -22,29 +22,25 @@ import org.dmfs.provider.tasks.TaskDatabaseHelper;
 import org.dmfs.provider.tasks.model.adapters.FieldAdapter;
 
 import android.content.ContentValues;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
 
 /**
- * A {@link TaskAdapter} for tasks that are stored in a {@link ContentValues}.
  * 
  * @author Marten Gajda <marten@dmfs.org>
  */
-public class ContentValuesTaskAdapter extends AbstractTaskAdapter
+public class CursorContentValuesListAdapter extends AbstractListAdapter
 {
-	private long mId;
+	private final long mId;
+	private final Cursor mCursor;
 	private final ContentValues mValues;
 
 
-	public ContentValuesTaskAdapter(ContentValues values)
-	{
-		this(-1L, values);
-	}
-
-
-	public ContentValuesTaskAdapter(long id, ContentValues values)
+	public CursorContentValuesListAdapter(long id, Cursor cursor, ContentValues values)
 	{
 		mId = id;
+		mCursor = cursor;
 		mValues = values;
 	}
 
@@ -57,23 +53,23 @@ public class ContentValuesTaskAdapter extends AbstractTaskAdapter
 
 
 	@Override
-	public <T> T valueOf(FieldAdapter<T, TaskAdapter> fieldAdapter)
+	public <T> T valueOf(FieldAdapter<T, ListAdapter> fieldAdapter)
 	{
-		return fieldAdapter.getFrom(mValues);
+		return fieldAdapter.getFrom(mCursor, mValues);
 	}
 
 
 	@Override
-	public <T> T oldValueOf(FieldAdapter<T, TaskAdapter> fieldAdapter)
+	public <T> T oldValueOf(FieldAdapter<T, ListAdapter> fieldAdapter)
 	{
-		return null;
+		return fieldAdapter.getFrom(mCursor);
 	}
 
 
 	@Override
-	public <T> boolean isUpdated(FieldAdapter<T, TaskAdapter> fieldAdapter)
+	public <T> boolean isUpdated(FieldAdapter<T, ListAdapter> fieldAdapter)
 	{
-		return fieldAdapter.isSetIn(mValues);
+		return mValues != null && fieldAdapter.isSetIn(mValues);
 	}
 
 
@@ -87,19 +83,19 @@ public class ContentValuesTaskAdapter extends AbstractTaskAdapter
 	@Override
 	public boolean hasUpdates()
 	{
-		return mValues.size() > 0;
+		return mValues != null && mValues.size() > 0;
 	}
 
 
 	@Override
-	public <T> void set(FieldAdapter<T, TaskAdapter> fieldAdapter, T value) throws IllegalStateException
+	public <T> void set(FieldAdapter<T, ListAdapter> fieldAdapter, T value) throws IllegalStateException
 	{
 		fieldAdapter.setIn(mValues, value);
 	}
 
 
 	@Override
-	public <T> void unset(FieldAdapter<T, TaskAdapter> fieldAdapter) throws IllegalStateException
+	public <T> void unset(FieldAdapter<T, ListAdapter> fieldAdapter) throws IllegalStateException
 	{
 		fieldAdapter.removeFrom(mValues);
 	}
@@ -113,21 +109,25 @@ public class ContentValuesTaskAdapter extends AbstractTaskAdapter
 			return 0;
 		}
 
-		if (mId < 0)
-		{
-			mId = db.insert(TaskDatabaseHelper.Tables.TASKS, null, mValues);
-			return mId > 0 ? 1 : 0;
-		}
-		else
-		{
-			return db.update(TaskDatabaseHelper.Tables.TASKS, mValues, TaskContract.TaskColumns._ID + "=" + mId, null);
-		}
+		return db.update(TaskDatabaseHelper.Tables.LISTS, mValues, TaskContract.TaskListColumns._ID + "=" + mId, null);
 	}
 
 
 	@Override
-	public TaskAdapter duplicate()
+	public ListAdapter duplicate()
 	{
-		return new ContentValuesTaskAdapter(new ContentValues(mValues));
+		ContentValues newValues = new ContentValues(mValues);
+
+		// copy all columns (except _ID) that are not in the values yet
+		for (int i = 0, count = mCursor.getColumnCount(); i < count; ++i)
+		{
+			String column = mCursor.getColumnName(i);
+			if (!newValues.containsKey(column) && !TaskContract.Tasks._ID.equals(column))
+			{
+				newValues.put(column, mCursor.getString(i));
+			}
+		}
+
+		return new ContentValuesListAdapter(newValues);
 	}
 }

@@ -26,7 +26,6 @@ import org.dmfs.provider.tasks.TaskContract.TaskColumns;
 import org.dmfs.provider.tasks.TaskContract.Tasks;
 import org.dmfs.provider.tasks.TaskDatabaseHelper.Tables;
 import org.dmfs.provider.tasks.model.TaskAdapter;
-import org.dmfs.provider.tasks.model.TaskFieldAdapters;
 
 import android.content.ContentValues;
 import android.database.Cursor;
@@ -273,21 +272,21 @@ public class FTSDatabaseHelper
 	public static void updateTaskFTSEntries(SQLiteDatabase db, TaskAdapter task)
 	{
 		// title
-		if (task.isUpdated(TaskFieldAdapters.TITLE))
+		if (task.isUpdated(TaskAdapter.TITLE))
 		{
-			updateEntry(db, task.id(), -1, SearchableTypes.TITLE, task.valueOf(TaskFieldAdapters.TITLE));
+			updateEntry(db, task.id(), -1, SearchableTypes.TITLE, task.valueOf(TaskAdapter.TITLE));
 		}
 
 		// location
-		if (task.isUpdated(TaskFieldAdapters.LOCATION))
+		if (task.isUpdated(TaskAdapter.LOCATION))
 		{
-			updateEntry(db, task.id(), -1, SearchableTypes.LOCATION, task.valueOf(TaskFieldAdapters.LOCATION));
+			updateEntry(db, task.id(), -1, SearchableTypes.LOCATION, task.valueOf(TaskAdapter.LOCATION));
 		}
 
 		// description
-		if (task.isUpdated(TaskFieldAdapters.DESCRIPTION))
+		if (task.isUpdated(TaskAdapter.DESCRIPTION))
 		{
-			updateEntry(db, task.id(), -1, SearchableTypes.DESCRIPTION, task.valueOf(TaskFieldAdapters.DESCRIPTION));
+			updateEntry(db, task.id(), -1, SearchableTypes.DESCRIPTION, task.valueOf(TaskAdapter.DESCRIPTION));
 		}
 
 	}

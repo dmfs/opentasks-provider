@@ -18,11 +18,21 @@
 package org.dmfs.provider.tasks.model;
 
 import org.dmfs.provider.tasks.TaskContract;
-import org.dmfs.provider.tasks.model.adapters.FieldAdapter;
+import org.dmfs.provider.tasks.TaskContract.Instances;
+import org.dmfs.provider.tasks.TaskContract.Tasks;
+import org.dmfs.provider.tasks.model.adapters.BinaryFieldAdapter;
+import org.dmfs.provider.tasks.model.adapters.BooleanFieldAdapter;
+import org.dmfs.provider.tasks.model.adapters.DateTimeArrayFieldAdapter;
+import org.dmfs.provider.tasks.model.adapters.DateTimeFieldAdapter;
+import org.dmfs.provider.tasks.model.adapters.DurationFieldAdapter;
+import org.dmfs.provider.tasks.model.adapters.IntegerFieldAdapter;
+import org.dmfs.provider.tasks.model.adapters.LongFieldAdapter;
+import org.dmfs.provider.tasks.model.adapters.RRuleFieldAdapter;
+import org.dmfs.provider.tasks.model.adapters.StringFieldAdapter;
+import org.dmfs.provider.tasks.model.adapters.UrlFieldAdapter;
 
 import android.content.ContentValues;
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
 
 
 /**
@@ -30,61 +40,281 @@ import android.database.sqlite.SQLiteDatabase;
  * 
  * @author Marten Gajda <marten@dmfs.org>
  */
-public interface TaskAdapter
+public interface TaskAdapter extends EntityAdapter<TaskAdapter>
 {
 	/**
-	 * Returns the row id of the task or <code>-1</code> if the task has not been stored yet.
-	 * 
-	 * @return The task row id or <code>-1</code>.
+	 * Adapter for the row id of a task.
 	 */
-	public long id();
-
+	public final static LongFieldAdapter<TaskAdapter> _ID = new LongFieldAdapter<TaskAdapter>(Tasks._ID);
 
 	/**
-	 * Returns the value identified by the given {@link FieldAdapter}.
-	 * 
-	 * @param fieldAdapter
-	 *            The {@link FieldAdapter} of the value to return.
-	 * @return The value, maybe be <code>null</code>.
+	 * Adapter for the task row id of as instance.
 	 */
-	public <T> T valueOf(FieldAdapter<T> fieldAdapter);
-
+	public final static LongFieldAdapter<TaskAdapter> INSTANCE_TASK_ID = new LongFieldAdapter<TaskAdapter>(Instances.TASK_ID);
 
 	/**
-	 * Returns the old value identified by the given {@link FieldAdapter}. This will be equal to the value returned by {@link #valueOf(FieldAdapter)} unless it
-	 * has been overridden, in which case this returns the former value.
-	 * 
-	 * @param fieldAdapter
-	 *            The {@link FieldAdapter} of the value to return.
-	 * @return The value, maybe be <code>null</code>.
+	 * Adapter for the row id of the list of a task.
 	 */
-	public <T> T oldValueOf(FieldAdapter<T> fieldAdapter);
-
+	public final static LongFieldAdapter<TaskAdapter> LIST_ID = new LongFieldAdapter<TaskAdapter>(Tasks.LIST_ID);
 
 	/**
-	 * Returns whether the given field has been overridden or not.
-	 * 
-	 * @param fieldAdapter
-	 *            The {@link FieldAdapter} of the field to check.
-	 * @return <code>true</code> if the field has been overridden, <code>false</code> otherwise.
+	 * Adapter for the owner of the list of a task.
 	 */
-	public <T> boolean isUpdated(FieldAdapter<T> fieldAdapter);
-
+	public final static StringFieldAdapter<TaskAdapter> LIST_OWNER = new StringFieldAdapter<TaskAdapter>(Tasks.LIST_OWNER);
 
 	/**
-	 * Returns whether this adapter supports modifying values.
-	 * 
-	 * @return <code>true</code> if the task values can be changed by this adapter, false otherwise.
+	 * Adapter for the row id of original instance of a task.
 	 */
-	public boolean isWriteable();
-
+	public final static LongFieldAdapter<TaskAdapter> ORIGINAL_INSTANCE_ID = new LongFieldAdapter<TaskAdapter>(Tasks.ORIGINAL_INSTANCE_ID);
 
 	/**
-	 * Returns whether any value has been modified.
-	 * 
-	 * @return <code>true</code> if there are modified values, false otherwise.
+	 * Adapter for the sync_id of original instance of a task.
 	 */
-	public boolean hasUpdates();
+	public final static StringFieldAdapter<TaskAdapter> ORIGINAL_INSTANCE_SYNC_ID = new StringFieldAdapter<TaskAdapter>(Tasks.ORIGINAL_INSTANCE_SYNC_ID);
+
+	/**
+	 * Adapter for the all day flag of a task.
+	 */
+	public final static BooleanFieldAdapter<TaskAdapter> IS_ALLDAY = new BooleanFieldAdapter<TaskAdapter>(Tasks.IS_ALLDAY);
+
+	/**
+	 * Adapter for the percent complete value of a task.
+	 */
+	public final static IntegerFieldAdapter<TaskAdapter> PERCENT_COMPLETE = new IntegerFieldAdapter<TaskAdapter>(Tasks.PERCENT_COMPLETE);
+
+	/**
+	 * Adapter for the status of a task.
+	 */
+	public final static IntegerFieldAdapter<TaskAdapter> STATUS = new IntegerFieldAdapter<TaskAdapter>(Tasks.STATUS);
+
+	/**
+	 * Adapter for the priority value of a task.
+	 */
+	public final static IntegerFieldAdapter<TaskAdapter> PRIORITY = new IntegerFieldAdapter<TaskAdapter>(Tasks.PRIORITY);
+
+	/**
+	 * Adapter for the classification value of a task.
+	 */
+	public final static IntegerFieldAdapter<TaskAdapter> CLASSIFICATION = new IntegerFieldAdapter<TaskAdapter>(Tasks.CLASSIFICATION);
+
+	/**
+	 * Adapter for the list name of a task.
+	 */
+	public final static StringFieldAdapter<TaskAdapter> LIST_NAME = new StringFieldAdapter<TaskAdapter>(Tasks.LIST_NAME);
+
+	/**
+	 * Adapter for the account name of a task.
+	 */
+	public final static StringFieldAdapter<TaskAdapter> ACCOUNT_NAME = new StringFieldAdapter<TaskAdapter>(Tasks.ACCOUNT_NAME);
+
+	/**
+	 * Adapter for the account type of a task.
+	 */
+	public final static StringFieldAdapter<TaskAdapter> ACCOUNT_TYPE = new StringFieldAdapter<TaskAdapter>(Tasks.ACCOUNT_TYPE);
+
+	/**
+	 * Adapter for the title of a task.
+	 */
+	public final static StringFieldAdapter<TaskAdapter> TITLE = new StringFieldAdapter<TaskAdapter>(Tasks.TITLE);
+
+	/**
+	 * Adapter for the location of a task.
+	 */
+	public final static StringFieldAdapter<TaskAdapter> LOCATION = new StringFieldAdapter<TaskAdapter>(Tasks.LOCATION);
+
+	/**
+	 * Adapter for the description of a task.
+	 */
+	public final static StringFieldAdapter<TaskAdapter> DESCRIPTION = new StringFieldAdapter<TaskAdapter>(Tasks.DESCRIPTION);
+
+	/**
+	 * Adapter for the start date of a task.
+	 */
+	public final static DateTimeFieldAdapter<TaskAdapter> DTSTART = new DateTimeFieldAdapter<TaskAdapter>(Tasks.DTSTART, Tasks.TZ, Tasks.IS_ALLDAY);
+
+	/**
+	 * Adapter for the raw start date timestamp of a task.
+	 */
+	public final static LongFieldAdapter<TaskAdapter> DTSTART_RAW = new LongFieldAdapter<TaskAdapter>(Tasks.DTSTART);
+
+	/**
+	 * Adapter for the due date of a task.
+	 */
+	public final static DateTimeFieldAdapter<TaskAdapter> DUE = new DateTimeFieldAdapter<TaskAdapter>(Tasks.DUE, Tasks.TZ, Tasks.IS_ALLDAY);
+
+	/**
+	 * Adapter for the raw due date timestamp of a task.
+	 */
+	public final static LongFieldAdapter<TaskAdapter> DUE_RAW = new LongFieldAdapter<TaskAdapter>(Tasks.DUE);
+
+	/**
+	 * Adapter for the start date of a task.
+	 */
+	public final static DurationFieldAdapter<TaskAdapter> DURATION = new DurationFieldAdapter<TaskAdapter>(Tasks.DURATION);
+
+	/**
+	 * Adapter for the dirty flag of a task.
+	 */
+	public final static BooleanFieldAdapter<TaskAdapter> _DIRTY = new BooleanFieldAdapter<TaskAdapter>(Tasks._DIRTY);
+
+	/**
+	 * Adapter for the deleted flag of a task.
+	 */
+	public final static BooleanFieldAdapter<TaskAdapter> _DELETED = new BooleanFieldAdapter<TaskAdapter>(Tasks._DELETED);
+
+	/**
+	 * Adapter for the completed date of a task.
+	 */
+	public final static DateTimeFieldAdapter<TaskAdapter> COMPLETED = new DateTimeFieldAdapter<TaskAdapter>(Tasks.COMPLETED, null, null);
+
+	/**
+	 * Adapter for the created date of a task.
+	 */
+	public final static DateTimeFieldAdapter<TaskAdapter> CREATED = new DateTimeFieldAdapter<TaskAdapter>(Tasks.CREATED, null, null);
+
+	/**
+	 * Adapter for the last modified date of a task.
+	 */
+	public final static DateTimeFieldAdapter<TaskAdapter> LAST_MODIFIED = new DateTimeFieldAdapter<TaskAdapter>(Tasks.LAST_MODIFIED, null, null);
+
+	/**
+	 * Adapter for the URL of a task.
+	 */
+	public final static UrlFieldAdapter<TaskAdapter> URL = new UrlFieldAdapter<TaskAdapter>(TaskContract.Tasks.URL);
+
+	/**
+	 * Adapter for the UID of a task.
+	 */
+	public final static StringFieldAdapter<TaskAdapter> _UID = new StringFieldAdapter<TaskAdapter>(TaskContract.Tasks._UID);
+
+	/**
+	 * Adapter for the raw time zone of a task.
+	 */
+	public final static StringFieldAdapter<TaskAdapter> TIMEZONE_RAW = new StringFieldAdapter<TaskAdapter>(TaskContract.Tasks.TZ);
+
+	/**
+	 * Adapter for the Color of the task.
+	 * */
+	public final static IntegerFieldAdapter<TaskAdapter> LIST_COLOR = new IntegerFieldAdapter<TaskAdapter>(TaskContract.Tasks.LIST_COLOR);
+
+	/**
+	 * Adapter for the access level of the task list.
+	 * */
+	public final static IntegerFieldAdapter<TaskAdapter> LIST_ACCESS_LEVEL = new IntegerFieldAdapter<TaskAdapter>(TaskContract.Tasks.LIST_ACCESS_LEVEL);
+
+	/**
+	 * Adapter for the visibility setting of the task list.
+	 * */
+	public final static BooleanFieldAdapter<TaskAdapter> LIST_VISIBLE = new BooleanFieldAdapter<TaskAdapter>(TaskContract.Tasks.VISIBLE);
+
+	/**
+	 * Adpater for the ID of the task.
+	 * */
+	public static final IntegerFieldAdapter<TaskAdapter> TASK_ID = new IntegerFieldAdapter<TaskAdapter>(TaskContract.Tasks._ID);
+
+	/**
+	 * Adapter for the IS_CLOSED flag of a task.
+	 * */
+	public static final BooleanFieldAdapter<TaskAdapter> IS_CLOSED = new BooleanFieldAdapter<TaskAdapter>(TaskContract.Tasks.IS_CLOSED);
+
+	/**
+	 * Adapter for the IS_NEW flag of a task.
+	 * */
+	public static final BooleanFieldAdapter<TaskAdapter> IS_NEW = new BooleanFieldAdapter<TaskAdapter>(TaskContract.Tasks.IS_NEW);
+
+	/**
+	 * Adapter for the PINNED flag of a task.
+	 * */
+	public static final BooleanFieldAdapter<TaskAdapter> PINNED = new BooleanFieldAdapter<TaskAdapter>(TaskContract.Tasks.PINNED);
+
+	/**
+	 * Adapter for the HAS_ALARMS flag of a task.
+	 * */
+	public static final BooleanFieldAdapter<TaskAdapter> HAS_ALARMS = new BooleanFieldAdapter<TaskAdapter>(TaskContract.Tasks.HAS_ALARMS);
+
+	/**
+	 * Adapter for the HAS_PROPERTIES flag of a task.
+	 * */
+	public static final BooleanFieldAdapter<TaskAdapter> HAS_PROPERTIES = new BooleanFieldAdapter<TaskAdapter>(TaskContract.Tasks.HAS_PROPERTIES);
+
+	/**
+	 * Adapter for the RRULE of a task.
+	 * */
+	public static final RRuleFieldAdapter<TaskAdapter> RRULE = new RRuleFieldAdapter<TaskAdapter>(TaskContract.Tasks.RRULE);
+
+	/**
+	 * Adapter for the RDATE of a task.
+	 * */
+	public static final DateTimeArrayFieldAdapter<TaskAdapter> RDATE = new DateTimeArrayFieldAdapter<TaskAdapter>(TaskContract.Tasks.RDATE,
+		TaskContract.Tasks.TZ);
+
+	/**
+	 * Adapter for the EXDATE of a task.
+	 * */
+	public static final DateTimeArrayFieldAdapter<TaskAdapter> EXDATE = new DateTimeArrayFieldAdapter<TaskAdapter>(TaskContract.Tasks.EXDATE,
+		TaskContract.Tasks.TZ);
+
+	/**
+	 * Adapter for the SYNC1 field of a task.
+	 * */
+	public static final BinaryFieldAdapter<TaskAdapter> SYNC1 = new BinaryFieldAdapter<TaskAdapter>(TaskContract.Tasks.SYNC1);
+
+	/**
+	 * Adapter for the SYNC2 field of a task.
+	 * */
+	public static final BinaryFieldAdapter<TaskAdapter> SYNC2 = new BinaryFieldAdapter<TaskAdapter>(TaskContract.Tasks.SYNC2);
+
+	/**
+	 * Adapter for the SYNC3 field of a task.
+	 * */
+	public static final BinaryFieldAdapter<TaskAdapter> SYNC3 = new BinaryFieldAdapter<TaskAdapter>(TaskContract.Tasks.SYNC3);
+
+	/**
+	 * Adapter for the SYNC4 field of a task.
+	 * */
+	public static final BinaryFieldAdapter<TaskAdapter> SYNC4 = new BinaryFieldAdapter<TaskAdapter>(TaskContract.Tasks.SYNC4);
+
+	/**
+	 * Adapter for the SYNC5 field of a task.
+	 * */
+	public static final BinaryFieldAdapter<TaskAdapter> SYNC5 = new BinaryFieldAdapter<TaskAdapter>(TaskContract.Tasks.SYNC5);
+
+	/**
+	 * Adapter for the SYNC6 field of a task.
+	 * */
+	public static final BinaryFieldAdapter<TaskAdapter> SYNC6 = new BinaryFieldAdapter<TaskAdapter>(TaskContract.Tasks.SYNC6);
+
+	/**
+	 * Adapter for the SYNC7 field of a task.
+	 * */
+	public static final BinaryFieldAdapter<TaskAdapter> SYNC7 = new BinaryFieldAdapter<TaskAdapter>(TaskContract.Tasks.SYNC7);
+
+	/**
+	 * Adapter for the SYNC8 field of a task.
+	 * */
+	public static final BinaryFieldAdapter<TaskAdapter> SYNC8 = new BinaryFieldAdapter<TaskAdapter>(TaskContract.Tasks.SYNC8);
+
+	/**
+	 * Adapter for the SYNC_VERSION field of a task.
+	 * */
+	public static final BinaryFieldAdapter<TaskAdapter> SYNC_VERSION = new BinaryFieldAdapter<TaskAdapter>(TaskContract.Tasks.SYNC_VERSION);
+
+	/**
+	 * Adapter for the SYNC_ID field of a task.
+	 * */
+	public static final StringFieldAdapter<TaskAdapter> SYNC_ID = new StringFieldAdapter<TaskAdapter>(TaskContract.Tasks._SYNC_ID);
+
+	/**
+	 * Adapter for the due date of a task instance.
+	 */
+	public final static DateTimeFieldAdapter<TaskAdapter> INSTANCE_DUE = new DateTimeFieldAdapter<TaskAdapter>(Instances.INSTANCE_DUE, Tasks.TZ,
+		Tasks.IS_ALLDAY);
+
+	/**
+	 * Adapter for the start date of a task instance.
+	 */
+	public final static DateTimeFieldAdapter<TaskAdapter> INSTANCE_START = new DateTimeFieldAdapter<TaskAdapter>(Instances.INSTANCE_START, Tasks.TZ,
+		Tasks.IS_ALLDAY);
 
 
 	/**
@@ -105,62 +335,11 @@ public interface TaskAdapter
 	public boolean recurrenceUpdated();
 
 
-	/**
-	 * Sets a value of the adapted task. The value is identified by a {@link FieldAdapter}.
-	 * 
-	 * @param fieldAdapter
-	 *            The {@link FieldAdapter} of the value to set.
-	 * @param value
-	 *            The new value.
-	 */
-	public <T> void set(FieldAdapter<T> fieldAdapter, T value);
-
-
-	/**
-	 * Remove a value from the change set. In effect the respective field will keep it's old value.
-	 * 
-	 * @param fieldAdapter
-	 *            The {@link FieldAdapter} of the field to un-set.
-	 */
-	public <T> void unset(FieldAdapter<T> fieldAdapter);
-
-
-	/**
-	 * Commit all changes to the database.
-	 * 
-	 * @param db
-	 *            A writable database.
-	 * @return The number of entries affected. This may be <code>0</code> if no fields have been changed.
-	 */
-	public int commit(SQLiteDatabase db);
-
-
-	/**
-	 * Return the value of a temporary state field. The state of a task is not committed to the database, it's only bound to the instances of this
-	 * {@link TaskAdapter} and will be lost once it gets garbage collected.
-	 * 
-	 * @param stateFieldAdater
-	 *            The {@link FieldAdapter} of a state field.
-	 * @return The value of the state field.
-	 */
-	public <T> T getState(FieldAdapter<T> stateFieldAdater);
-
-
-	/**
-	 * Set the value of a state field. This value is not stored in the database. Instead it only exists as long as this {@link TaskAdapter} exists.
-	 * 
-	 * @param stateFieldAdater
-	 *            The {@link FieldAdapter} of the state field to set.
-	 * @param value
-	 *            The new state value.
-	 */
-	public <T> void setState(FieldAdapter<T> stateFieldAdater, T value);
-
-
 	/***
 	 * Creates a {@link TaskAdapter} for a new task initialized with the values of this task (except for _ID).
 	 * 
 	 * @return A new task having the same values.
 	 */
+	@Override
 	public TaskAdapter duplicate();
 }

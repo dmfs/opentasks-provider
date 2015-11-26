@@ -39,6 +39,21 @@ public class CursorContentValuesTaskAdapter extends AbstractTaskAdapter
 	private final ContentValues mValues;
 
 
+	public CursorContentValuesTaskAdapter(Cursor cursor, ContentValues values)
+	{
+		if (cursor == null && !_ID.existsIn(values))
+		{
+			mId = -1L;
+		}
+		else
+		{
+			mId = _ID.getFrom(cursor);
+		}
+		mCursor = cursor;
+		mValues = values;
+	}
+
+
 	public CursorContentValuesTaskAdapter(long id, Cursor cursor, ContentValues values)
 	{
 		mId = id;
@@ -55,21 +70,25 @@ public class CursorContentValuesTaskAdapter extends AbstractTaskAdapter
 
 
 	@Override
-	public <T> T valueOf(FieldAdapter<T> fieldAdapter)
+	public <T> T valueOf(FieldAdapter<T, TaskAdapter> fieldAdapter)
 	{
+		if (mValues == null)
+		{
+			return fieldAdapter.getFrom(mCursor);
+		}
 		return fieldAdapter.getFrom(mCursor, mValues);
 	}
 
 
 	@Override
-	public <T> T oldValueOf(FieldAdapter<T> fieldAdapter)
+	public <T> T oldValueOf(FieldAdapter<T, TaskAdapter> fieldAdapter)
 	{
 		return fieldAdapter.getFrom(mCursor);
 	}
 
 
 	@Override
-	public <T> boolean isUpdated(FieldAdapter<T> fieldAdapter)
+	public <T> boolean isUpdated(FieldAdapter<T, TaskAdapter> fieldAdapter)
 	{
 		return mValues != null && fieldAdapter.isSetIn(mValues);
 	}
@@ -78,7 +97,7 @@ public class CursorContentValuesTaskAdapter extends AbstractTaskAdapter
 	@Override
 	public boolean isWriteable()
 	{
-		return true;
+		return mValues != null;
 	}
 
 
@@ -90,14 +109,14 @@ public class CursorContentValuesTaskAdapter extends AbstractTaskAdapter
 
 
 	@Override
-	public <T> void set(FieldAdapter<T> fieldAdapter, T value) throws IllegalStateException
+	public <T> void set(FieldAdapter<T, TaskAdapter> fieldAdapter, T value) throws IllegalStateException
 	{
 		fieldAdapter.setIn(mValues, value);
 	}
 
 
 	@Override
-	public <T> void unset(FieldAdapter<T> fieldAdapter) throws IllegalStateException
+	public <T> void unset(FieldAdapter<T, TaskAdapter> fieldAdapter) throws IllegalStateException
 	{
 		fieldAdapter.removeFrom(mValues);
 	}
