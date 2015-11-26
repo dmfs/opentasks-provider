@@ -1226,11 +1226,6 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 		}
 	}
 
-	static
-	{
-
-	}
-
 
 	@Override
 	protected void onEndTransaction(boolean callerIsSyncAdapter)
