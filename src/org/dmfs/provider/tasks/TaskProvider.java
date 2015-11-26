@@ -1222,11 +1222,6 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 			case INSTANCES:
 				return ContentResolver.CURSOR_DIR_BASE_TYPE + "/" + mAuthority + "." + Instances.CONTENT_URI_PATH;
 			default:
-				if (TaskContract.getContentUri(mAuthority).equals(uri))
-				{
-					// the uri matched content://<AUTHORITY>, in that case we return a special mimetype that represents the authority as such
-					return "vnd.android.cursor.dir/vnd.org.dmfs.authority.mimetype";
-				}
 				throw new IllegalArgumentException("Unsupported URI: " + uri);
 		}
 	}
