@@ -185,7 +185,7 @@ public enum ContentOperation
 		 */
 		private void sendBroadcast(Context context, String action, Uri uri, DateTime datetime, String title)
 		{
-			Intent intent = new Intent(TaskContract.ACTION_BROADCAST_TASK_STARTING);
+			Intent intent = new Intent(action);
 			intent.setData(uri);
 			intent.putExtra(TaskContract.EXTRA_TASK_TIMESTAMP, datetime.getTimestamp());
 			intent.putExtra(TaskContract.EXTRA_TASK_ALLDAY, datetime.isAllDay());
@@ -274,6 +274,10 @@ public enum ContentOperation
 			if (nextAlarm != null)
 			{
 				TaskProviderBroadcastReceiver.planNotificationUpdate(context, nextAlarm);
+			}
+			else
+			{
+				saveLastAlarmTime(context, now);
 			}
 		}
 
