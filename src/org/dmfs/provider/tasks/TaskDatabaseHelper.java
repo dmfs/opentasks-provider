@@ -60,7 +60,7 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 	/**
 	 * The database version.
 	 */
-	static final int DATABASE_VERSION = 15;
+	static final int DATABASE_VERSION = 16;
 
 	/**
 	 * List of all tables we provide.
@@ -610,6 +610,8 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		// create indices
 		db.execSQL(createIndexString(Tables.INSTANCES, false, TaskContract.Instances.TASK_ID, TaskContract.Instances.INSTANCE_START,
 			TaskContract.Instances.INSTANCE_DUE));
+		db.execSQL(createIndexString(Tables.INSTANCES, false, TaskContract.Instances.INSTANCE_START_SORTING));
+		db.execSQL(createIndexString(Tables.INSTANCES, false, TaskContract.Instances.INSTANCE_DUE_SORTING));
 		db.execSQL(createIndexString(Tables.LISTS, false, TaskContract.TaskLists.ACCOUNT_NAME, // not sure if necessary
 			TaskContract.TaskLists.ACCOUNT_TYPE));
 		db.execSQL(createIndexString(Tables.TASKS, false, TaskContract.Tasks.STATUS, TaskContract.Tasks.LIST_ID, TaskContract.Tasks._SYNC_ID));
@@ -769,6 +771,12 @@ public class TaskDatabaseHelper extends SQLiteOpenHelper
 		{
 			// create a unique index for account name and account type on the sync state table
 			db.execSQL(createIndexString(Tables.SYNCSTATE, true, TaskContract.SyncState.ACCOUNT_NAME, TaskContract.SyncState.ACCOUNT_TYPE));
+		}
+
+		if (oldVersion < 16)
+		{
+			db.execSQL(createIndexString(Tables.INSTANCES, false, TaskContract.Instances.INSTANCE_START_SORTING));
+			db.execSQL(createIndexString(Tables.INSTANCES, false, TaskContract.Instances.INSTANCE_DUE_SORTING));
 		}
 
 		// upgrade FTS
