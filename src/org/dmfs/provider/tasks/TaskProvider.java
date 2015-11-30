@@ -210,15 +210,7 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 		AccountManager accountManager = AccountManager.get(getContext());
 		accountManager.addOnAccountsUpdatedListener(this, mAsyncHandler, true);
 
-		mAsyncHandler.post(new Runnable()
-		{
-
-			@Override
-			public void run()
-			{
-				ContentOperation.UPDATE_NOTIFICATION_ALARM.fire(getContext(), null);
-			}
-		});
+		updateNotifications();
 
 		return result;
 	}
@@ -756,7 +748,6 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 					cursor.close();
 				}
 
-				updateNotifications();
 				break;
 
 			}
@@ -797,7 +788,6 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 					cursor.close();
 				}
 
-				updateNotifications();
 				break;
 			}
 			case ALARM_ID:
@@ -892,7 +882,6 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				rowId = list.id();
 				result_uri = TaskContract.TaskLists.getContentUri(mAuthority);
 
-				updateNotifications();
 				break;
 			}
 			case TASKS:
@@ -906,7 +895,6 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				postNotifyUri(Instances.getContentUri(mAuthority));
 				postNotifyUri(Tasks.getContentUri(mAuthority));
 
-				updateNotifications();
 				break;
 
 			case PROPERTIES:
@@ -1054,8 +1042,6 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 				{
 					postNotifyUri(Instances.getContentUri(mAuthority));
 					postNotifyUri(Tasks.getContentUri(mAuthority));
-
-					updateNotifications();
 				}
 				break;
 			}
@@ -1157,7 +1143,15 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	 */
 	private void updateNotifications()
 	{
-		ContentOperation.UPDATE_NOTIFICATION_ALARM.fire(getContext(), null);
+		mAsyncHandler.post(new Runnable()
+		{
+
+			@Override
+			public void run()
+			{
+				ContentOperation.UPDATE_NOTIFICATION_ALARM.fire(getContext(), null);
+			}
+		});
 	}
 
 
@@ -1232,6 +1226,10 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 	{
 		super.onEndTransaction(callerIsSyncAdapter);
 		Intent providerChangedIntent = new Intent(Intent.ACTION_PROVIDER_CHANGED, TaskContract.getContentUri(mAuthority));
+		if (!mOperationsLog.isEmpty())
+		{
+			updateNotifications();
+		}
 		// add the change log to the broadcast
 		providerChangedIntent.putExtras(mOperationsLog.toBundle(true));
 		getContext().sendBroadcast(providerChangedIntent);

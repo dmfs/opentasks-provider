@@ -95,4 +95,15 @@ public class ProviderOperationsLog
 	{
 		return toBundle(null, clearLog);
 	}
+
+
+	/**
+	 * Returns whether any operations have been logged or not.
+	 * 
+	 * @return <code>true</code> if this log is empty, <code>false</code> if it contains any logs of operations.
+	 */
+	public boolean isEmpty()
+	{
+		return mUris.size() == 0;
+	}
 }
