@@ -182,6 +182,11 @@ public class FTSDatabaseHelper
 			initializeFTS(db);
 			initializeFTSContent(db);
 		}
+		if (oldVersion < 16)
+		{
+			db.execSQL(TaskDatabaseHelper.createIndexString(FTS_CONTENT_TABLE, true, FTSContentColumns.TYPE, FTSContentColumns.TASK_ID,
+				FTSContentColumns.PROPERTY_ID));
+		}
 	}
 
 
@@ -204,6 +209,10 @@ public class FTSDatabaseHelper
 		db.execSQL(TaskDatabaseHelper.createIndexString(FTS_CONTENT_TABLE, false, FTSContentColumns.TASK_ID));
 		db.execSQL(TaskDatabaseHelper.createIndexString(FTS_CONTENT_TABLE, true, FTSContentColumns.PROPERTY_ID, FTSContentColumns.TASK_ID,
 			FTSContentColumns.NGRAM_ID));
+
+		db.execSQL(TaskDatabaseHelper.createIndexString(FTS_CONTENT_TABLE, true, FTSContentColumns.TYPE, FTSContentColumns.TASK_ID,
+			FTSContentColumns.PROPERTY_ID));
+
 	}
 
 
