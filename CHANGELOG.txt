@@ -18,3 +18,4 @@ Internal changes
 * refactor database operation handling
  * introduce processor chains to handle task and task list operations
  * add model for tasks and task lists to provide type safe field access
+* add some indexes to speed up certain operations
