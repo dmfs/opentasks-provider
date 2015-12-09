@@ -135,11 +135,6 @@ public final class TaskContract
 	public final static String EXTRA_TASK_TITLE = "org.dmfs.provider.tasks.extra.TITLE";
 
 	/**
-	 * Boolean extra to indicate that a notification is supposed to be silent, i.e. should not play a sound when it's fired.
-	 */
-	public final static String EXTRA_SILENT_NOTIFICATION = "org.dmfs.provider.tasks.extra.SILENT";
-
-	/**
 	 * The name of the {@link Intent#ACTION_PROVIDER_CHANGED} extra that contains the {@link ArrayList} of {@link Uri}s that have been modified. This always
 	 * goes along with an {@link #EXTRA_OPERATIONS} which contains a code for the operation executed on a Uri at the same index.
 	 */
