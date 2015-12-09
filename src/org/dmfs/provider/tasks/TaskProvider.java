@@ -101,7 +101,7 @@ import android.text.TextUtils;
  * @author Tobias Reinsch <tobias@dmfs.org>
  * 
  */
-public final class TaskProvider extends SQLiteContentProvider implements OnAccountsUpdateListener
+public final class TaskProvider extends SQLiteContentProvider implements OnAccountsUpdateListener, OnDatabaseOperationListener
 {
 
 	private static final int LISTS = 1;
@@ -1206,15 +1206,15 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 		switch (mUriMatcher.match(uri))
 		{
 			case LISTS:
-				return ContentResolver.CURSOR_DIR_BASE_TYPE + "/" + mAuthority + "." + TaskLists.CONTENT_URI_PATH;
+				return ContentResolver.CURSOR_DIR_BASE_TYPE + "/org.dmfs.tasks." + TaskLists.CONTENT_URI_PATH;
 			case LIST_ID:
-				return ContentResolver.CURSOR_ITEM_BASE_TYPE + "/" + mAuthority + "." + TaskLists.CONTENT_URI_PATH;
+				return ContentResolver.CURSOR_ITEM_BASE_TYPE + "/org.dmfs.tasks." + TaskLists.CONTENT_URI_PATH;
 			case TASKS:
-				return ContentResolver.CURSOR_DIR_BASE_TYPE + "/" + mAuthority + "." + Tasks.CONTENT_URI_PATH;
+				return ContentResolver.CURSOR_DIR_BASE_TYPE + "/org.dmfs.tasks." + Tasks.CONTENT_URI_PATH;
 			case TASK_ID:
-				return ContentResolver.CURSOR_ITEM_BASE_TYPE + "/" + mAuthority + "." + Tasks.CONTENT_URI_PATH;
+				return ContentResolver.CURSOR_ITEM_BASE_TYPE + "/org.dmfs.tasks." + Tasks.CONTENT_URI_PATH;
 			case INSTANCES:
-				return ContentResolver.CURSOR_DIR_BASE_TYPE + "/" + mAuthority + "." + Instances.CONTENT_URI_PATH;
+				return ContentResolver.CURSOR_DIR_BASE_TYPE + "/org.dmfs.tasks." + Instances.CONTENT_URI_PATH;
 			default:
 				throw new IllegalArgumentException("Unsupported URI: " + uri);
 		}
@@ -1237,32 +1237,38 @@ public final class TaskProvider extends SQLiteContentProvider implements OnAccou
 
 
 	@Override
-	public SQLiteOpenHelper getDatabaseHelper(final Context context)
+	public SQLiteOpenHelper getDatabaseHelper(Context context)
 	{
-		TaskDatabaseHelper helper = new TaskDatabaseHelper(context, new OnDatabaseOperationListener()
+		TaskDatabaseHelper helper = new TaskDatabaseHelper(context, this);
+
+		return helper;
+	}
+
+
+	@Override
+	public void onDatabaseCreated(SQLiteDatabase db)
+	{
+		// notify listeners that the database has been created
+		Intent dbInitializedIntent = new Intent(TaskContract.ACTION_DATABASE_INITIALIZED);
+		dbInitializedIntent.setDataAndType(TaskContract.getContentUri(mAuthority), TaskContract.MIMETYPE_AUTHORITY);
+		getContext().sendBroadcast(dbInitializedIntent);
+	}
+
+
+	@Override
+	public void onDatabaseUpdate(SQLiteDatabase db, int oldVersion, int newVersion)
+	{
+		if (oldVersion < 15)
 		{
-
-			@Override
-			public void onDatabaseCreated(SQLiteDatabase db)
+			mAsyncHandler.post(new Runnable()
 			{
-				// notify listeners that the database has been created
-				Intent dbInitializedIntent = new Intent(TaskContract.ACTION_DATABASE_INITIALIZED);
-				dbInitializedIntent.setDataAndType(TaskContract.getContentUri(mAuthority), TaskContract.MIMETYPE_AUTHORITY);
-				context.sendBroadcast(dbInitializedIntent);
-			}
-
-
-			@Override
-			public void onDatabaseUpdate(SQLiteDatabase db, int oldVersion, int newVersion)
-			{
-				if (oldVersion < 15)
+				@Override
+				public void run()
 				{
 					ContentOperation.UPDATE_TIMEZONE.fire(getContext(), null);
 				}
-			}
-		});
-
-		return helper;
+			});
+		}
 	}
 
 
