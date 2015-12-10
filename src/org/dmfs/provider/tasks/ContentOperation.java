@@ -63,10 +63,7 @@ public enum ContentOperation
 				TaskContract.Tasks.getContentUri(uri.getAuthority()).buildUpon().appendQueryParameter(TaskContract.CALLER_IS_SYNCADAPTER, "true").build(),
 				vals, null, null);
 
-			if (BuildConfig.DEBUG)
-			{
-				Log.i("TaskProvider", "time to update " + count + " tasks: " + (System.currentTimeMillis() - start) + " ms");
-			}
+			Log.i("TaskProvider", "time to update " + count + " tasks: " + (System.currentTimeMillis() - start) + " ms");
 
 			// now update alarms as well
 			UPDATE_NOTIFICATION_ALARM.fire(context, null);

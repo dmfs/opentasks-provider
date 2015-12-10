@@ -132,10 +132,5 @@ public enum ProviderOperation
 		{
 			log.log(this, entityAdapter.uri(authority));
 		}
-
-		if (BuildConfig.DEBUG)
-		{
-			Log.v(TAG, "time to execute " + this + " operation on " + entityAdapter.uri(authority) + " " + (System.currentTimeMillis() - start) + " ms");
-		}
 	}
 }
