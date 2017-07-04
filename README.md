@@ -1,3 +1,8 @@
+
+# Deprecated Repository
+
+Note: OpenTasks Provider is now a module inside the OpenTasks repository. This separate repoistory is no longer maintained.
+
 # opentasks-provider
 
 __An open source task provider for Android__
